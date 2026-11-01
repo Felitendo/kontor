@@ -50,6 +50,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -90,6 +91,8 @@ import de.felitendo.kontor.ui.haptics.LocalHaptics
 import de.felitendo.kontor.ui.instrument.PositionFlow
 import de.felitendo.kontor.ui.lock.Biometrics
 import de.felitendo.kontor.ui.theme.K
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private sealed interface Phase {
     data object Welcome : Phase
@@ -205,6 +208,7 @@ private fun Security(activity: MainActivity, onNext: () -> Unit) {
     // Coming back from the Android security settings may have changed things.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { availability = Biometrics.availability(activity) }
     var success by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     Page {
         Spacer(Modifier.weight(1f))
@@ -226,7 +230,8 @@ private fun Security(activity: MainActivity, onNext: () -> Unit) {
                         success = true
                         haptics.success()
                         vm.updateSettings { it.copy(lockEnabled = true, lockAsked = true) }
-                        onNext()
+                        // Let the check mark land before moving on.
+                        scope.launch { delay(900); onNext() }
                     } else haptics.reject()
                 }
             }
