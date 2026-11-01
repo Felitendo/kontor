@@ -201,6 +201,18 @@ class Updater(private val context: Context, private val http: OkHttpClient) {
     }
 }
 
+/** Android stops the app while it replaces it; this tells the user the update is done. */
+class UpdatedReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
+        de.felitendo.kontor.work.Work.notify(
+            context, 4712, de.felitendo.kontor.work.Work.CHANNEL_UPDATES,
+            "Kontor wurde aktualisiert",
+            "Version ${BuildConfig.VERSION_NAME} ist installiert. Tippe, um Kontor zu öffnen.",
+        )
+    }
+}
+
 class InstallReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)

@@ -48,6 +48,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import de.felitendo.kontor.BuildConfig
@@ -84,6 +86,16 @@ fun SettingsScreen(nav: NavController, activity: MainActivity, openUpdate: Boole
     var message by remember { mutableStateOf<String?>(null) }
     var pendingImport by remember { mutableStateOf<String?>(null) }
     var confirmWipe by remember { mutableStateOf(false) }
+    // Set while the user grants "install unknown apps"; the install continues on return.
+    var pendingInstall by remember { mutableStateOf<Release?>(null) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        val release = pendingInstall ?: return@LifecycleEventEffect
+        pendingInstall = null
+        if (vm.c.updater.canInstall()) {
+            activity.suppressNextLock = true
+            vm.installUpdate(release)
+        }
+    }
 
     LaunchedEffect(openUpdate) { if (openUpdate || update is UpdateState.Idle) vm.checkUpdates(channel) }
 
@@ -159,7 +171,7 @@ fun SettingsScreen(nav: NavController, activity: MainActivity, openUpdate: Boole
                 UpdatePanel(update, channel, onCheck = { vm.checkUpdates(channel) }) { release ->
                     if (!vm.c.updater.canInstall()) {
                         activity.suppressNextLock = true
-                        message = "Erlaube Kontor einmalig, Updates zu installieren, und tippe dann erneut auf „Installieren“."
+                        pendingInstall = release
                         context.startActivity(vm.c.updater.unknownSourcesIntent())
                     } else {
                         activity.suppressNextLock = true
@@ -303,7 +315,8 @@ private fun ReleaseCard(release: Release, action: String, onAction: () -> Unit) 
         if (release.notes.isNotBlank()) {
             Spacer(Modifier.height(10.dp))
             Text(
-                release.notes.lines().filter { it.isNotBlank() }.take(12).joinToString("\n") { it.trim().removePrefix("## ").removePrefix("### ").replace(Regex("^[-*] "), "• ") },
+                release.notes.lines().filter { it.isNotBlank() }.take(12)
+                    .joinToString("\n") { it.trim().removePrefix("## ").removePrefix("### ").replace(Regex("^[-*] "), "• ").replace("`", "").replace("**", "") },
                 style = K.type.caption, color = c.textSecondary,
             )
         }

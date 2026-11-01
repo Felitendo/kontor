@@ -39,6 +39,14 @@
             android:exported="false" />
 
         <receiver
+            android:name=".update.UpdatedReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
             android:name=".widget.WealthWidgetReceiver"
             android:exported="true"
             android:label="Vermögen">
