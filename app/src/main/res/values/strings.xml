@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Kontor</string>
+    <string name="widget_wealth_desc">Dein Gesamtvermögen mit Tagesveränderung und Verlauf</string>
+    <string name="widget_depot_desc">Depotwert und deine größten Positionen</string>
+    <string name="widget_gold_desc">Aktueller Goldpreis je Unze</string>
+</resources>

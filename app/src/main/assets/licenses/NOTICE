@@ -1,0 +1,8 @@
+Kontor — GPL-3.0-or-later
+
+Bank, broker and insurer logos in res/drawable-nodpi (bank_*.webp) are trademarks
+of their respective owners and are used solely to identify the institution. They
+are not covered by the GPL. Some are derived from Simple Icons (CC0-1.0).
+
+Company and fund logos are loaded at runtime from the Parqet Logo API.
+Inter typeface: SIL Open Font License 1.1 (see Inter-OFL.txt).

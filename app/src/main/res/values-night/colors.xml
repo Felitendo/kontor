@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="kontor_bg">#000000</color>
+    <color name="kontor_fg">#FFFFFF</color>
+    <bool name="light_bars">false</bool>
+</resources>
