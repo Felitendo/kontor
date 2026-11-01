@@ -144,7 +144,7 @@ fun InstrumentScreen(nav: NavController, route: Routes.Instrument) {
                 Spacer(Modifier.height(20.dp))
                 Column(Modifier.padding(horizontal = 20.dp)) {
                     if (shown != null) RollingText(Fmt.eur(shown), K.type.hero, c.text, animate = scrub == null)
-                    else Text("—", style = K.type.hero, color = c.textTertiary)
+                    else Text("…", style = K.type.hero, color = c.textTertiary)
                     Spacer(Modifier.height(2.dp))
                     if (change != null && base != null && base != 0.0) {
                         ChangeLabel(

@@ -107,7 +107,7 @@ private sealed interface Phase {
 
 /** First launch: welcome, app lock, then a guided tour that captures every asset. */
 @Composable
-fun OnboardingScreen(activity: MainActivity, onFinish: () -> Unit) {
+fun OnboardingScreen(activity: MainActivity, onTransfer: () -> Unit, onFinish: () -> Unit) {
     val vm = LocalVm.current
     val context = LocalContext.current
     var phase by remember { mutableStateOf<Phase>(Phase.Welcome) }
@@ -141,7 +141,7 @@ fun OnboardingScreen(activity: MainActivity, onFinish: () -> Unit) {
         modifier = Modifier.fillMaxSize().background(K.colors.background),
     ) { p ->
         when (p) {
-            Phase.Welcome -> Welcome { phase = Phase.Security }
+            Phase.Welcome -> Welcome(onTransfer = onTransfer) { phase = Phase.Security }
             Phase.Security -> Security(activity) { phase = Phase.Kinds }
             Phase.Kinds -> KindPicker(kinds) { if (kinds.isEmpty()) phase = if (needsNotify) Phase.Notify else Phase.Done else phase = Phase.Entry(0) }
             is Phase.Entry -> {
@@ -168,7 +168,7 @@ private fun Page(horizontal: androidx.compose.ui.unit.Dp = 24.dp, content: @Comp
 }
 
 @Composable
-private fun Welcome(onNext: () -> Unit) {
+private fun Welcome(onTransfer: () -> Unit, onNext: () -> Unit) {
     val c = K.colors
     val haptics = LocalHaptics.current
     var drawn by remember { mutableStateOf(false) }
@@ -189,7 +189,9 @@ private fun Welcome(onNext: () -> Unit) {
         AnimatedVisibility(drawn, enter = fadeIn(tween(500, 400))) {
             Column {
                 PrimaryButton("Los geht's") { onNext() }
-                Spacer(Modifier.height(12.dp))
+                Box(Modifier.fillMaxWidth().height(52.dp).pressable(onClick = onTransfer), contentAlignment = Alignment.Center) {
+                    Text("Von altem Handy übernehmen", style = K.type.label, color = c.text)
+                }
                 Text(
                     "Alles bleibt auf deinem Gerät. Open Source unter GPLv3.",
                     style = K.type.caption, color = c.textTertiary, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
@@ -292,7 +294,7 @@ private fun KindPicker(selected: MutableList<AssetKind>, onNext: () -> Unit) {
     val text = mapOf(
         AssetKind.FIXED_DEPOSIT to "Bankname, Betrag, Zinssatz",
         AssetKind.SAVINGS to "Mit Zins und monatlicher Sparrate",
-        AssetKind.METAL to "In Unzen — der Preis kommt live",
+        AssetKind.METAL to "In Unzen, der Preis kommt live",
         AssetKind.DEPOT to "Aktien & ETFs per WKN suchen",
         AssetKind.PENSION to "Riester-Guthaben",
         AssetKind.CASH to "Zu Hause, im Tresor, …",
@@ -303,7 +305,7 @@ private fun KindPicker(selected: MutableList<AssetKind>, onNext: () -> Unit) {
             Spacer(Modifier.height(24.dp))
             Text("Was gehört zu deinem Vermögen?", style = K.type.headline, color = c.text)
             Spacer(Modifier.height(8.dp))
-            Text("Wähle alles aus — wir gehen es danach Schritt für Schritt durch.", style = K.type.body, color = c.textSecondary)
+            Text("Wähle alles aus. Wir gehen es danach Schritt für Schritt durch.", style = K.type.body, color = c.textSecondary)
             Spacer(Modifier.height(20.dp))
             AssetKind.entries.forEachIndexed { i, kind ->
                 val enter = remember { Animatable(0f) }

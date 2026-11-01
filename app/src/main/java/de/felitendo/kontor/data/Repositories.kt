@@ -1,20 +1,43 @@
 package de.felitendo.kontor.data
 
 import androidx.datastore.core.DataStore
+import de.felitendo.kontor.data.banks.Banks
 import de.felitendo.kontor.data.model.Asset
+import de.felitendo.kontor.data.model.BankRef
+import de.felitendo.kontor.data.model.FixedDeposit
+import de.felitendo.kontor.data.model.PORTFOLIO_SCHEMA
+import de.felitendo.kontor.data.model.PensionContract
+import de.felitendo.kontor.data.model.SavingsAccount
 import de.felitendo.kontor.data.model.Depot
 import de.felitendo.kontor.data.model.Portfolio
 import de.felitendo.kontor.data.model.Position
 import de.felitendo.kontor.data.model.Settings
-import de.felitendo.kontor.data.store.KontorJson
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import kotlinx.serialization.Serializable
 
 class PortfolioRepository(private val store: DataStore<Portfolio>) {
     val data: Flow<Portfolio> = store.data
 
     suspend fun current(): Portfolio = store.data.first()
+
+    /**
+     * Brings stored data up to the current schema.
+     * 2: banks typed by hand get linked to the catalog (logo), e.g. "Chase" or "Kreissparkasse Köln".
+     */
+    suspend fun migrate() = store.updateData { p ->
+        if (p.schema >= PORTFOLIO_SCHEMA) p else p.copy(assets = p.assets.map(::linkBanks), schema = PORTFOLIO_SCHEMA)
+    }
+
+    private fun link(ref: BankRef): BankRef =
+        if (ref.id != null) ref else Banks.match(ref.name)?.let { ref.copy(id = it.id) } ?: ref
+
+    private fun linkBanks(a: Asset): Asset = when (a) {
+        is FixedDeposit -> a.copy(bank = link(a.bank))
+        is SavingsAccount -> a.copy(bank = link(a.bank))
+        is PensionContract -> a.copy(provider = link(a.provider))
+        is Depot -> a.copy(bank = a.bank?.let(::link))
+        else -> a
+    }
 
     suspend fun upsert(asset: Asset) = store.updateData { p ->
         val exists = p.assets.any { it.id == asset.id }
@@ -40,24 +63,11 @@ class PortfolioRepository(private val store: DataStore<Portfolio>) {
 
     suspend fun replaceAll(assets: List<Asset>) = store.updateData { it.copy(assets = assets) }
 
-    suspend fun exportJson(): String = KontorJson.encodeToString(Backup.serializer(), Backup(assets = current().assets))
-
-    /** Returns the number of imported assets. Throws on unreadable input. */
-    suspend fun importJson(json: String): Int {
-        val backup = KontorJson.decodeFromString(Backup.serializer(), json)
-        require(backup.app == "kontor") { "Keine Kontor-Sicherung" }
-        replaceAll(backup.assets)
-        return backup.assets.size
+    /** Replaces everything with the assets of a backup or transfer. */
+    suspend fun restore(assets: List<Asset>) = store.updateData {
+        Portfolio(assets = assets.map(::linkBanks), schema = PORTFOLIO_SCHEMA)
     }
 }
-
-@Serializable
-data class Backup(
-    val app: String = "kontor",
-    val schema: Int = 1,
-    val exportedAt: Long = System.currentTimeMillis(),
-    val assets: List<Asset>,
-)
 
 class SettingsRepository(private val store: DataStore<Settings>) {
     val data: Flow<Settings> = store.data

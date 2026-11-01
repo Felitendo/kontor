@@ -135,7 +135,7 @@ fun ColumnScope.SearchContent(autoFocus: Boolean = true, onPick: (MarketApi.Sear
                     PickRow(
                         leading = { InstrumentLogo(i.isin, i.name) },
                         title = i.name,
-                        subtitle = listOfNotNull(i.wkn?.let { "WKN $it" }, i.isin).joinToString(" · "),
+                        subtitle = listOfNotNull(i.wkn?.let { "WKN $it" }, i.isin).joinToString("\u00A0· "),
                         trailing = { Tag(i.type.title) },
                     ) { onPick(hit) }
                 }

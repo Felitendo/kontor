@@ -61,6 +61,7 @@ import de.felitendo.kontor.data.model.ThemeMode
 import de.felitendo.kontor.data.model.UpdateChannel
 import de.felitendo.kontor.ui.Fmt
 import de.felitendo.kontor.ui.LocalVm
+import de.felitendo.kontor.ui.Routes
 import de.felitendo.kontor.ui.components.PrimaryButton
 import de.felitendo.kontor.ui.components.TopBar
 import de.felitendo.kontor.ui.components.pressable
@@ -86,7 +87,6 @@ fun SettingsScreen(nav: NavController, activity: MainActivity, openUpdate: Boole
     val s = settings ?: return
     val channel = s.updateChannel ?: vm.c.updater.buildChannel
     var message by remember { mutableStateOf<String?>(null) }
-    var pendingImport by remember { mutableStateOf<String?>(null) }
     var confirmWipe by remember { mutableStateOf(false) }
     // Set while the user grants "install unknown apps"; the install continues on return.
     var pendingInstall by remember { mutableStateOf<Release?>(null) }
@@ -105,22 +105,13 @@ fun SettingsScreen(nav: NavController, activity: MainActivity, openUpdate: Boole
         target ?: return@rememberLauncherForActivityResult
         scope.launch {
             val ok = runCatching {
-                val json = vm.c.portfolio.exportJson()
+                val json = vm.c.backups.export()
                 withContext(Dispatchers.IO) { context.contentResolver.openOutputStream(target)?.use { it.write(json.encodeToByteArray()) } }
             }.isSuccess
             if (ok) haptics.success() else haptics.reject()
             message = if (ok) "Sicherung gespeichert." else "Sicherung fehlgeschlagen."
         }
     }
-    val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { source ->
-        source ?: return@rememberLauncherForActivityResult
-        scope.launch {
-            pendingImport = withContext(Dispatchers.IO) {
-                runCatching { context.contentResolver.openInputStream(source)?.use { it.readBytes().decodeToString() } }.getOrNull()
-            }
-        }
-    }
-
     fun set(block: (Settings) -> Settings) = vm.updateSettings(block)
 
     Column(Modifier.fillMaxSize().background(c.background)) {
@@ -160,6 +151,13 @@ fun SettingsScreen(nav: NavController, activity: MainActivity, openUpdate: Boole
                 ChoiceRow("Design", ThemeMode.entries.map { it to it.title }, s.theme) { v -> set { it.copy(theme = v) } }
                 SwitchRow("Beträge verbergen", "Auch per Tipp auf das Gesamtvermögen", s.hideAmounts) { on -> set { it.copy(hideAmounts = on) } }
                 SwitchRow("Haptisches Feedback", "Vibrationen beim Tippen und im Chart", s.haptics) { on -> set { it.copy(haptics = on) } }
+                if (s.haptics) {
+                    ChoiceRow("Vibration", listOf(false to "Fein", true to "Kräftig"), s.hapticsStrong) { v -> set { it.copy(hapticsStrong = v) } }
+                    LinkRow("Vibration testen", if (haptics.available) "Spürst du nichts, wähle „Kräftig“." else "Dieses Gerät hat keinen Vibrationsmotor.") {
+                        scope.launch { haptics.demo() }
+                    }
+                }
+                SwitchRow("Schütteln zum Verbergen", "Handy kurz schütteln blendet alle Beträge aus oder ein", s.shakeToHide) { on -> set { it.copy(shakeToHide = on) } }
                 SwitchRow("Beträge im Widget", "Aus: Widgets zeigen nur Prozente", s.widgetShowAmounts) { on -> set { it.copy(widgetShowAmounts = on) } }
             }
 
@@ -191,15 +189,13 @@ fun SettingsScreen(nav: NavController, activity: MainActivity, openUpdate: Boole
                 SwitchRow("Automatisch suchen", "Beim Start und einmal täglich", s.autoUpdateCheck) { on -> set { it.copy(autoUpdateCheck = on) } }
             }
 
-            Group("Daten") {
-                LinkRow("Sicherung exportieren", "Alle Vermögenswerte als JSON-Datei") {
+            Group("Umzug & Sicherung") {
+                LinkRow("Umzug aufs neue Handy", "Per QR-Code oder Datei, ganz ohne Internet") { nav.navigate(Routes.Transfer("menu")) }
+                LinkRow("Sicherung speichern", "Alle Daten und Einstellungen als Datei") {
                     activity.suppressNextLock = true
-                    export.launch("kontor-sicherung-${java.time.LocalDate.now()}.json")
+                    export.launch(vm.c.backups.fileName())
                 }
-                LinkRow("Sicherung importieren", "Ersetzt die aktuellen Daten") {
-                    activity.suppressNextLock = true
-                    import.launch(arrayOf("application/json", "text/plain", "application/octet-stream"))
-                }
+                LinkRow("Sicherung einspielen", "Ersetzt die Daten auf diesem Handy") { nav.navigate(Routes.Transfer("new")) }
                 LinkRow("Alle Vermögenswerte löschen", null, destructive = true) { haptics.heavy(); confirmWipe = true }
             }
 
@@ -209,7 +205,7 @@ fun SettingsScreen(nav: NavController, activity: MainActivity, openUpdate: Boole
                 LinkRow("Quellcode auf GitHub", "github.com/${BuildConfig.GITHUB_REPO}", external = true) { uri.openUri("https://github.com/${BuildConfig.GITHUB_REPO}") }
                 LinkRow("Lizenz", "GNU General Public License v3.0", external = true) { uri.openUri("https://www.gnu.org/licenses/gpl-3.0.html") }
                 Text(
-                    "Kurse: Yahoo Finance, Onvista · Edelmetalle: gold-api.com · Logos: Parqet und die jeweiligen Banken (Marken ihrer Inhaber) · Schrift: Inter (OFL). Kontor speichert alles nur auf diesem Gerät.",
+                    "Kurse: Yahoo Finance, Onvista\u00A0· Edelmetalle: gold-api.com\u00A0· Logos: Parqet und die jeweiligen Banken (Marken ihrer Inhaber)\u00A0· Schrift: Inter (OFL). Kontor speichert alles nur auf diesem Gerät.",
                     style = K.type.caption, color = c.textTertiary, modifier = Modifier.padding(20.dp),
                 )
             }
@@ -221,25 +217,6 @@ fun SettingsScreen(nav: NavController, activity: MainActivity, openUpdate: Boole
             onDismissRequest = { message = null },
             text = { Text(m) },
             confirmButton = { TextButton({ message = null }) { Text("OK", color = c.text) } },
-            containerColor = c.surfaceHigh,
-        )
-    }
-    pendingImport?.let { json ->
-        AlertDialog(
-            onDismissRequest = { pendingImport = null },
-            title = { Text("Sicherung importieren?") },
-            text = { Text("Deine aktuellen Vermögenswerte werden durch die Sicherung ersetzt.") },
-            confirmButton = {
-                TextButton({
-                    pendingImport = null
-                    scope.launch {
-                        val n = runCatching { vm.c.portfolio.importJson(json) }.getOrNull()
-                        if (n != null) { haptics.success(); vm.refresh(force = true); message = "$n Vermögenswerte importiert." }
-                        else { haptics.reject(); message = "Die Datei ist keine gültige Kontor-Sicherung." }
-                    }
-                }) { Text("Importieren", color = c.text) }
-            },
-            dismissButton = { TextButton({ pendingImport = null }) { Text("Abbrechen", color = c.textSecondary) } },
             containerColor = c.surfaceHigh,
         )
     }
@@ -297,7 +274,7 @@ private fun UpdatePanel(state: UpdateState, channel: UpdateChannel, onCheck: () 
                         Spacer(Modifier.height(6.dp))
                         Text(Fmt.pct(st.progress * 100.0), style = K.type.caption, color = c.textSecondary)
                     }
-                    is UpdateState.Installing -> Text("Installation läuft — bestätige im System-Dialog.", style = K.type.body, color = c.text)
+                    is UpdateState.Installing -> Text("Installation läuft. Bestätige im System-Dialog.", style = K.type.body, color = c.text)
                     is UpdateState.Failed -> {
                         Text(st.message, style = K.type.body, color = c.text)
                         Spacer(Modifier.height(10.dp))
@@ -318,8 +295,8 @@ private fun ReleaseCard(release: Release, action: String, onAction: () -> Unit) 
         Text("Version ${release.versionName}", style = K.type.title, color = c.text)
         Text(
             (if (release.channel == UpdateChannel.DEV) "Dev-Build" else "Stable") +
-                (if (release.publishedAt > 0) " · " + Fmt.relative(release.publishedAt) else "") +
-                (if (release.apkSize > 0) " · " + Fmt.number(release.apkSize / 1_048_576.0) + " MB" else ""),
+                (if (release.publishedAt > 0) "\u00A0· " + Fmt.relative(release.publishedAt) else "") +
+                (if (release.apkSize > 0) "\u00A0· " + Fmt.number(release.apkSize / 1_048_576.0) + "\u00A0MB" else ""),
             style = K.type.caption, color = c.textSecondary,
         )
         if (release.notes.isNotBlank()) {

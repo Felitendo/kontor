@@ -14,7 +14,7 @@ import kotlinx.coroutines.coroutineScope
 /**
  * Reconstructs how the given assets were worth over [range]: today's holdings priced with
  * historical quotes, interest-bearing assets with their formula at each date. Not a ledger,
- * but exactly what you would have seen holding today's portfolio — like most brokers do.
+ * but exactly what you would have seen holding today's portfolio, like most brokers do.
  */
 suspend fun composeHistory(
     assets: List<Asset>,

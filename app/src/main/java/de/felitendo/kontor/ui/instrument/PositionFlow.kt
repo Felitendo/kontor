@@ -132,7 +132,7 @@ fun PositionFlow(
                 ) { quantity = it; state.next() }
             }
             2 -> AmountStep(
-                "Zu welchem Kurs gekauft?", "Optional — durchschnittlicher Kaufkurs je Stück",
+                "Zu welchem Kurs gekauft?", "Optional: durchschnittlicher Kaufkurs je Stück",
                 initial = buyPrice, decimals = 4, allowZero = true,
                 secondary = "Überspringen",
                 onSecondary = { buyPrice = ""; if (needsDepotChoice) state.next() else save() },

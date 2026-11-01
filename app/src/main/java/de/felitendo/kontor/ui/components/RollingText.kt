@@ -14,6 +14,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,36 +44,39 @@ fun RollingText(
     animate: Boolean = true,
 ) {
     val previous = remember { mutableStateOf(text) }
-    if (!animate) {
-        // While scrubbing the value changes every frame; rolling would only blur it.
-        SideEffect { previous.value = text }
-        Text(text, style = style, color = color, modifier = modifier, maxLines = 1, softWrap = false)
-        return
-    }
     val up = remember(text) { numericValue(text) >= numericValue(previous.value) }
     SideEffect { previous.value = text }
 
-    Row(modifier) {
-        val chars = text.toList()
-        chars.forEachIndexed { index, c ->
-            val fromEnd = chars.size - index
-            key(fromEnd) {
-                AnimatedContent(
-                    targetState = c,
-                    transitionSpec = {
-                        if (!targetState.isDigit() || !initialState.isDigit()) {
-                            EnterTransition.None togetherWith ExitTransition.None
-                        } else {
-                            val dir = if (up) 1 else -1
-                            val delay = (fromEnd * 22).coerceAtMost(220)
-                            val springIn = spring<IntOffset>(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow)
-                            (slideInVertically(springIn) { h -> h * dir } + fadeIn(tween(220, delay))) togetherWith
-                                (slideOutVertically(tween(220, delay, FastOutSlowInEasing)) { h -> -h * dir } + fadeOut(tween(160, delay)))
-                        }.using(SizeTransform(clip = true))
-                    },
-                    label = "digit",
-                ) { ch ->
-                    Text(ch.toString(), style = style, color = color, maxLines = 1, softWrap = false)
+    // Large system fonts must not wrap or clip the number: shrink it to the available width.
+    BoxWithConstraints(modifier) {
+        val fitted = fittedStyle(text, style, constraints.maxWidth)
+        if (!animate) {
+            // While scrubbing the value changes every frame; rolling would only blur it.
+            Text(text, style = fitted, color = color, maxLines = 1, softWrap = false)
+        } else {
+            Row {
+                val chars = text.toList()
+                chars.forEachIndexed { index, c ->
+                    val fromEnd = chars.size - index
+                    key(fromEnd) {
+                        AnimatedContent(
+                            targetState = c,
+                            transitionSpec = {
+                                if (!targetState.isDigit() || !initialState.isDigit()) {
+                                    EnterTransition.None togetherWith ExitTransition.None
+                                } else {
+                                    val dir = if (up) 1 else -1
+                                    val delay = (fromEnd * 22).coerceAtMost(220)
+                                    val springIn = spring<IntOffset>(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow)
+                                    (slideInVertically(springIn) { h -> h * dir } + fadeIn(tween(220, delay))) togetherWith
+                                        (slideOutVertically(tween(220, delay, FastOutSlowInEasing)) { h -> -h * dir } + fadeOut(tween(160, delay)))
+                                }.using(SizeTransform(clip = true))
+                            },
+                            label = "digit",
+                        ) { ch ->
+                            Text(ch.toString(), style = fitted, color = color, maxLines = 1, softWrap = false)
+                        }
+                    }
                 }
             }
         }

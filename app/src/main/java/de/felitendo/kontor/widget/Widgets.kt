@@ -87,7 +87,7 @@ private suspend fun snapshot(context: Context): Snapshot {
 
 /**
  * Glance keeps a widget session alive between updates, so the data has to be observed
- * inside the composition — values read before provideContent would go stale.
+ * inside the composition; values read before provideContent would go stale.
  */
 @Composable
 private fun liveSnapshot(context: Context, initial: Snapshot): Snapshot {
@@ -125,7 +125,7 @@ private fun Change(change: Double, base: Double, hidden: Boolean, suffix: String
     val pct = if (base - change != 0.0) change / (base - change) * 100 else 0.0
     val color = if (change >= 0) Up else Down
     val arrow = if (change >= 0) "▲" else "▼"
-    val text = if (hidden) "$arrow ${Fmt.pct(pct)}" else "$arrow ${Fmt.eur(kotlin.math.abs(change))} · ${Fmt.pct(pct)}"
+    val text = if (hidden) "$arrow ${Fmt.pct(pct)}" else "$arrow ${Fmt.eur(kotlin.math.abs(change))}\u00A0· ${Fmt.pct(pct)}"
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(text, style = TextStyle(color = color, fontSize = 12.sp, fontWeight = FontWeight.Medium), maxLines = 1)
         Text("  $suffix", style = TextStyle(color = Muted, fontSize = 12.sp), maxLines = 1)
@@ -253,10 +253,10 @@ class GoldWidget : GlanceAppWidget() {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Image(ImageProvider(R.drawable.ic_widget_gold), null, GlanceModifier.size(16.dp))
                         Spacer(GlanceModifier.width(6.dp))
-                        Label("Gold · 1 oz")
+                        Label("Gold\u00A0· 1 oz")
                     }
                     Spacer(GlanceModifier.height(6.dp))
-                    Big(quote?.let { Fmt.eur(it.price, decimals = size.width > 150.dp) } ?: "—", if (size.width > 150.dp) 24 else 20)
+                    Big(quote?.let { Fmt.eur(it.price, decimals = size.width > 150.dp) } ?: "…", if (size.width > 150.dp) 24 else 20)
                     quote?.changePct?.let { pct ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(

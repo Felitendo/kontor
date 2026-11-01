@@ -22,26 +22,26 @@ object Fmt {
     const val HIDDEN = "••••••"
 
     fun eur(v: Double, hidden: Boolean = false, decimals: Boolean = true): String =
-        if (hidden) "$HIDDEN €" else (if (decimals) money else moneyRound).format(v) + " €"
+        if (hidden) "$HIDDEN\u00A0€" else (if (decimals) money else moneyRound).format(v) + "\u00A0€"
 
     /** Number part only, e.g. "12.345,67". */
     fun number(v: Double): String = money.format(v)
 
     fun signedEur(v: Double, hidden: Boolean = false): String =
-        if (hidden) "$HIDDEN €" else (if (v >= 0) "+" else "−") + money.format(abs(v)) + " €"
+        if (hidden) "$HIDDEN\u00A0€" else (if (v >= 0) "+" else "−") + money.format(abs(v)) + "\u00A0€"
 
-    fun pct(v: Double): String = pct.format(abs(v)) + " %"
+    fun pct(v: Double): String = pct.format(abs(v)) + "\u00A0%"
 
-    fun signedPct(v: Double): String = (if (v >= 0) "+" else "−") + pct.format(abs(v)) + " %"
+    fun signedPct(v: Double): String = (if (v >= 0) "+" else "−") + pct.format(abs(v)) + "\u00A0%"
 
-    fun rate(v: Double): String = rate.format(v) + " %"
+    fun rate(v: Double): String = rate.format(v) + "\u00A0%"
 
     /** Averages: never more than two decimals. */
-    fun avgRate(v: Double): String = pct.format(v) + " %"
+    fun avgRate(v: Double): String = pct.format(v) + "\u00A0%"
 
     fun qty(v: Double): String = qty.format(v)
 
-    fun ounces(v: Double): String = oz.format(v) + " oz"
+    fun ounces(v: Double): String = oz.format(v) + "\u00A0oz"
 
     private val dateFmt = DateTimeFormatter.ofPattern("d. MMMM yyyy", locale)
     private val shortDate = DateTimeFormatter.ofPattern("dd.MM.yyyy", locale)

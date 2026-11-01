@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -94,21 +95,24 @@ fun AmountDisplay(
         text.length > 10 -> 42.sp
         else -> 54.sp
     }
-    val style = K.type.hero.copy(fontSize = size, lineHeight = size * 1.1f)
+    val base = K.type.hero.copy(fontSize = size, lineHeight = size * 1.1f)
     val offset = remember { Animatable(0f) }
     LaunchedEffect(shake) {
         if (shake == 0) return@LaunchedEffect
         for (x in listOf(18f, -14f, 10f, -6f, 3f, 0f)) offset.animateTo(x, tween(45))
     }
-    Row(
-        modifier.fillMaxWidth().graphicsLayer { translationX = offset.value },
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.Bottom,
-    ) {
-        text.forEachIndexed { i, ch ->
-            key(i) { RisingChar(ch, style, if (placeholder) c.textTertiary else c.text) }
+    BoxWithConstraints(modifier.fillMaxWidth().padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+        val style = fittedStyle("$text $suffix", base, constraints.maxWidth)
+        Row(
+            Modifier.graphicsLayer { translationX = offset.value },
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            text.forEachIndexed { i, ch ->
+                key(i) { RisingChar(ch, style, if (placeholder) c.textTertiary else c.text) }
+            }
+            Text(" $suffix", style = style, color = if (placeholder) c.textTertiary else c.textSecondary, maxLines = 1, softWrap = false)
         }
-        Text(" $suffix", style = style, color = if (placeholder) c.textTertiary else c.textSecondary)
     }
 }
 

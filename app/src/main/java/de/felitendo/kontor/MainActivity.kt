@@ -97,6 +97,7 @@ class MainActivity : FragmentActivity() {
                 else -> systemDark
             }
             val hapticsOn by rememberUpdatedState(settings?.haptics != false)
+            val hapticsStrong by rememberUpdatedState(settings?.hapticsStrong == true)
             DisposableEffect(dark) {
                 // The activity handles uiMode itself, so the bar icons follow the app theme here.
                 val style = if (dark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
@@ -104,7 +105,7 @@ class MainActivity : FragmentActivity() {
                 onDispose {}
             }
             KontorTheme(dark) {
-                val haptics = rememberHaptics { hapticsOn }
+                val haptics = rememberHaptics(enabled = { hapticsOn }, strong = { hapticsStrong })
                 CompositionLocalProvider(LocalVm provides vm, LocalHaptics provides haptics) {
                     KontorRoot(this@MainActivity)
                 }

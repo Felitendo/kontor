@@ -264,12 +264,12 @@ private fun PensionFlow(existing: PensionContract?, onSaved: (Asset) -> Unit, on
             0 -> BankStep("Wer ist dein Riester-Anbieter?", role = Role.PENSION) { provider = it; state.next() }
             1 -> AmountStep("Wie viel ist angespart?", "Laut letzter Standmitteilung", initial = balance) { balance = it; state.next() }
             2 -> AmountStep(
-                "Gibt es einen Zinssatz?", "Optional — z. B. Garantiezins oder erwartete Verzinsung",
+                "Gibt es einen Zinssatz?", "Optional, z. B. Garantiezins oder erwartete Verzinsung",
                 initial = rate, suffix = "%", decimals = 3, maxInt = 2, allowZero = true,
                 secondary = "Kein Zinssatz", onSecondary = { rate = ""; state.next() },
             ) { rate = it; state.next() }
             3 -> AmountStep(
-                "Zahlst du monatlich ein?", "Optional — dein Eigenbeitrag",
+                "Zahlst du monatlich ein?", "Optional: dein Eigenbeitrag",
                 initial = monthly, allowZero = true, secondary = "Keine Einzahlung", onSecondary = { monthly = ""; state.next() },
             ) { monthly = it; state.next() }
             else -> {
@@ -278,8 +278,8 @@ private fun PensionFlow(existing: PensionContract?, onSaved: (Asset) -> Unit, on
                     "Alles richtig?",
                     header = { BankHeader(a.provider, a.provider.name, Fmt.eur(a.balance)) },
                     rows = listOf(
-                        "Zinssatz" to (a.rate?.let { Fmt.rate(it) } ?: "—"),
-                        "Beitrag" to if (a.monthlyContribution > 0) Fmt.eur(a.monthlyContribution) + " / Monat" else "—",
+                        "Zinssatz" to (a.rate?.let { Fmt.rate(it) } ?: "keiner"),
+                        "Beitrag" to if (a.monthlyContribution > 0) Fmt.eur(a.monthlyContribution) + " / Monat" else "keiner",
                     ),
                     onEditRow = { i -> state.goTo(i + 2) },
                 ) { haptics.success(); onSaved(a) }
@@ -352,7 +352,7 @@ private fun MetalFlow(existing: MetalHolding?, onSaved: (Asset) -> Unit, onExit:
                     val oz = when (unit) { MetalUnit.OUNCES -> v; MetalUnit.GRAMS -> v / GRAMS_PER_OUNCE; MetalUnit.EURO -> price?.let { v / it } ?: 0.0 }
                     val text = when {
                         v <= 0 -> price?.let { "1 oz = ${Fmt.eur(it)}" } ?: ""
-                        unit == MetalUnit.EURO -> "≈ " + Fmt.ounces(oz) + " · " + Fmt.number(oz * GRAMS_PER_OUNCE) + " g"
+                        unit == MetalUnit.EURO -> "≈ " + Fmt.ounces(oz) + "\u00A0· " + Fmt.number(oz * GRAMS_PER_OUNCE) + "\u00A0g"
                         price != null -> "≈ " + Fmt.eur(oz * price)
                         else -> Fmt.ounces(oz)
                     }
@@ -364,7 +364,7 @@ private fun MetalFlow(existing: MetalHolding?, onSaved: (Asset) -> Unit, onExit:
                 state.next()
             }
             2 -> AmountStep(
-                "Was hast du dafür bezahlt?", "Optional — dann siehst du deinen Gewinn",
+                "Was hast du dafür bezahlt?", "Optional. Dann siehst du deinen Gewinn.",
                 initial = purchase, allowZero = true, secondary = "Überspringen", onSecondary = { purchase = ""; state.next() },
             ) { purchase = it; state.next() }
             else -> {
@@ -383,7 +383,7 @@ private fun MetalFlow(existing: MetalHolding?, onSaved: (Asset) -> Unit, onExit:
                     },
                     rows = listOfNotNull(
                         "Menge" to Fmt.ounces(a.ounces),
-                        "In Gramm" to Fmt.number(a.ounces * GRAMS_PER_OUNCE) + " g",
+                        "In Gramm" to Fmt.number(a.ounces * GRAMS_PER_OUNCE) + "\u00A0g",
                         price?.let { "Preis je Unze" to Fmt.eur(it) },
                         a.purchasePrice?.let { "Kaufpreis" to Fmt.eur(it) },
                     ),

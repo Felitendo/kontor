@@ -8,6 +8,8 @@ data class Portfolio(
     val schema: Int = 1,
 )
 
+const val PORTFOLIO_SCHEMA = 2
+
 enum class ThemeMode(val title: String) { SYSTEM("System"), DARK("Schwarz"), LIGHT("Weiß") }
 
 enum class UpdateChannel(val title: String) { STABLE("Stable"), DEV("Dev") }
@@ -32,6 +34,9 @@ data class Settings(
     val theme: ThemeMode = ThemeMode.SYSTEM,
     val hideAmounts: Boolean = false,
     val haptics: Boolean = true,
+    /** Plain full-strength pulses instead of the fine effects (for phones with weak motors). */
+    val hapticsStrong: Boolean = false,
+    val shakeToHide: Boolean = true,
     /** null = the channel this build was published on. */
     val updateChannel: UpdateChannel? = null,
     val autoUpdateCheck: Boolean = true,
@@ -48,7 +53,7 @@ data class Settings(
 data class Quote(
     val price: Double,
     val previousClose: Double? = null,
-    /** Currency of [price] after conversion — always EUR in the cache. */
+    /** Currency of [price] after conversion, always EUR in the cache. */
     val currency: String = "EUR",
     val time: Long = 0,
     val exchange: String? = null,

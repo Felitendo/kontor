@@ -18,7 +18,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import de.felitendo.kontor.ui.theme.K
 
 /**
- * The Kontor mark — a K whose arm is a rising price line — drawn stroke by stroke.
+ * The Kontor mark (a K whose arm is a rising price line), drawn stroke by stroke.
  * Coordinates match the launcher icon (108 grid).
  */
 @Composable

@@ -50,7 +50,7 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 
 /**
- * "Was wäre wenn": projects every asset with its own logic — interest and savings plans for
+ * "Was wäre wenn": projects every asset with its own logic: interest and savings plans for
  * accounts, an adjustable return for securities, gold and cash flat.
  */
 @Composable

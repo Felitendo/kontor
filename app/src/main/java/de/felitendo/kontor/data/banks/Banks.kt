@@ -15,6 +15,8 @@ data class Bank(
     val color: Long = 0xFF2A2A2A,
     val monogram: String = name.take(2),
     val aliases: List<String> = emptyList(),
+    /** Groups of local banks: any typed name containing one of these words belongs here. */
+    val family: List<String> = emptyList(),
 ) {
     fun ref() = BankRef(id, name)
 }
@@ -28,8 +30,8 @@ private val BP = setOf(Role.BROKER, Role.PENSION)
 /** Logos are trademarks of their respective owners and only used to identify the institution. */
 object Banks {
     val all: List<Bank> = listOf(
-        Bank("sparkasse", "Sparkasse", R.drawable.bank_sparkasse, BBP, aliases = listOf("Kreissparkasse", "Stadtsparkasse", "KSK", "Haspa")),
-        Bank("volksbank", "Volksbank Raiffeisenbank", R.drawable.bank_volksbank, BBP, aliases = listOf("VR Bank", "Raiffeisen", "Volksbank")),
+        Bank("sparkasse", "Sparkasse", R.drawable.bank_sparkasse, BBP, aliases = listOf("Kreissparkasse", "Stadtsparkasse", "KSK", "Haspa"), family = listOf("sparkasse")),
+        Bank("volksbank", "Volksbank Raiffeisenbank", R.drawable.bank_volksbank, BBP, aliases = listOf("VR Bank", "Raiffeisen", "Volksbank"), family = listOf("volksbank", "raiffeisen", "vr bank", "vr-bank")),
         Bank("ing", "ING", R.drawable.bank_ing, BB, aliases = listOf("ING-DiBa", "Diba")),
         Bank("traderepublic", "Trade Republic", R.drawable.bank_traderepublic, BB),
         Bank("dkb", "DKB", R.drawable.bank_dkb, BB, aliases = listOf("Deutsche Kreditbank")),
@@ -45,9 +47,10 @@ object Banks {
         Bank("norisbank", "norisbank", R.drawable.bank_norisbank, BB),
         Bank("direkt1822", "1822direkt", R.drawable.bank_direkt1822, BB, aliases = listOf("Frankfurter Sparkasse")),
         Bank("c24", "C24 Bank", R.drawable.bank_c24, B, aliases = listOf("Check24")),
+        Bank("chase", "Chase", R.drawable.bank_chase, B, aliases = listOf("Chase Bank", "J.P. Morgan", "JPMorgan")),
         Bank("n26", "N26", R.drawable.bank_n26, BB),
-        Bank("sparda", "Sparda-Bank", R.drawable.bank_sparda, B),
-        Bank("psd", "PSD Bank", R.drawable.bank_psd, B),
+        Bank("sparda", "Sparda-Bank", R.drawable.bank_sparda, B, family = listOf("sparda")),
+        Bank("psd", "PSD Bank", R.drawable.bank_psd, B, family = listOf("psd bank", "psd-bank")),
         Bank("olb", "Oldenburgische Landesbank", R.drawable.bank_olb, BB, aliases = listOf("OLB")),
         Bank("openbank", "Openbank", R.drawable.bank_openbank, B),
         Bank("raisin", "WeltSparen (Raisin)", null, B, color = 0xFF1E73BE, monogram = "WS", aliases = listOf("Raisin", "Zinspilot")),
@@ -101,10 +104,15 @@ object Banks {
         }.sortedBy { if (it.name.lowercase().startsWith(q)) 0 else 1 }
     }
 
-    /** Matches a typed name against the catalog so custom entries still get a logo. */
+    /**
+     * Matches a typed name against the catalog so custom entries still get a logo:
+     * exact names and aliases, "<Bank> <Zusatz>" and local banks such as "Kreissparkasse Ludwigsburg".
+     */
     fun match(name: String): Bank? {
         val q = name.trim().lowercase()
         if (q.length < 2) return null
-        return all.firstOrNull { it.name.lowercase() == q || it.aliases.any { a -> a.lowercase() == q } }
+        all.firstOrNull { b -> b.name.lowercase() == q || b.aliases.any { it.lowercase() == q } }?.let { return it }
+        all.firstOrNull { b -> (listOf(b.name) + b.aliases).any { q.startsWith(it.lowercase() + " ") } }?.let { return it }
+        return all.firstOrNull { b -> b.family.any { q.contains(it) } }
     }
 }

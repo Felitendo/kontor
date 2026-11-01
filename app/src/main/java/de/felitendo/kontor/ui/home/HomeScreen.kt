@@ -12,6 +12,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,6 +28,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
@@ -56,8 +59,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import de.felitendo.kontor.data.model.Asset
@@ -212,7 +218,7 @@ fun HomeScreen(nav: NavController) {
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text("Update verfügbar", style = K.type.bodyStrong, color = c.background)
-                            Text("Version ${rel?.versionName.orEmpty()} · Tippen zum Installieren", style = K.type.caption, color = c.background.copy(alpha = 0.7f))
+                            Text("Version ${rel?.versionName.orEmpty()}\u00A0· Tippen zum Installieren", style = K.type.caption, color = c.background.copy(alpha = 0.7f))
                         }
                         Icon(Icons.Rounded.ChevronRight, null, tint = c.background)
                     }
@@ -339,7 +345,7 @@ private fun EmptyHome(onAdd: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(24.dp).padding(top = 60.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Noch leer hier", style = K.type.headline, color = c.text)
         Spacer(Modifier.height(8.dp))
-        Text("Füge dein erstes Vermögen hinzu – Festgeld, Gold, Aktien oder Bargeld.", style = K.type.body, color = c.textSecondary)
+        Text("Füge dein erstes Vermögen hinzu: Festgeld, Gold, Aktien oder Bargeld.", style = K.type.body, color = c.textSecondary)
         Spacer(Modifier.height(28.dp))
         PrimaryButton("Vermögen hinzufügen") { onAdd() }
     }
@@ -356,13 +362,13 @@ private fun InsightRow(assets: List<Asset>, cache: MarketCache, hidden: Boolean,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         if (interest > 0) {
-            InsightCard("Zinsen", Fmt.eur(interest / 12, hidden), "pro Monat · ${Fmt.eur(interest, hidden, decimals = false)} im Jahr", kindVector(AssetKind.SAVINGS)) {
+            InsightCard("Zinsen", Fmt.eur(interest / 12, hidden), "pro Monat\u00A0· ${Fmt.eur(interest, hidden, decimals = false)} im Jahr", kindVector(AssetKind.SAVINGS)) {
                 nav.navigate(Routes.Forecast)
             }
         }
         if (gold != null) {
             InsightCard(
-                "Gold", Fmt.eur(gold.price), "je Unze" + (gold.changePct?.let { " · " + Fmt.signedPct(it) } ?: ""),
+                "Gold", Fmt.eur(gold.price), "je Unze" + (gold.changePct?.let { "\u00A0· " + Fmt.signedPct(it) } ?: ""),
                 kindVector(AssetKind.METAL), iconTint = metalColor(Metal.GOLD),
             ) { if (ownsMetal) nav.navigate(Routes.Kind(AssetKind.METAL)) else nav.navigate(Routes.Add(AssetKind.METAL)) }
         }
@@ -370,7 +376,7 @@ private fun InsightRow(assets: List<Asset>, cache: MarketCache, hidden: Boolean,
         val inTen = remember(assets, cache, settings?.forecastStockReturn) {
             de.felitendo.kontor.ui.forecast.projectTotal(assets, cache, 10, settings?.forecastStockReturn ?: 5.0)
         }
-        InsightCard("Prognose", "≈ " + Fmt.eur(inTen, hidden, decimals = false), "in 10 Jahren · tippen zum Rechnen", Icons.AutoMirrored.Rounded.TrendingUp) {
+        InsightCard("Prognose", "≈ " + Fmt.eur(inTen, hidden, decimals = false), "in 10 Jahren\u00A0· tippen zum Rechnen", Icons.AutoMirrored.Rounded.TrendingUp) {
             nav.navigate(Routes.Forecast)
         }
     }
@@ -410,28 +416,68 @@ private fun Allocation(assets: List<Asset>, cache: MarketCache, hidden: Boolean,
     if (kinds.size < 2) return
     var selected by remember { mutableStateOf<Int?>(null) }
     SectionHeader("Aufteilung")
-    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(150.dp), contentAlignment = Alignment.Center) {
-            Donut(kinds.map { it.share }, c.ramp, selected, { selected = it }, Modifier.fillMaxSize())
-            val sel = selected?.let { kinds.getOrNull(it) }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(sel?.let { Fmt.pct(it.share * 100.0) } ?: kinds.size.toString(), style = K.type.title, color = c.text)
-                Text(sel?.kind?.title ?: "Anlagearten", style = K.type.caption, color = c.textSecondary, maxLines = 1)
+    val labelStyle = K.type.label
+    val measurer = rememberTextMeasurer()
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+        // Side by side when the longest label fits next to the ring, otherwise the legend
+        // goes below it (large system fonts) instead of squeezing or breaking words.
+        val density = LocalDensity.current
+        val legendNeeds = remember(kinds, labelStyle, density) {
+            val label = kinds.maxOf { measurer.measure(it.kind.title, labelStyle).size.width }
+            val pct = measurer.measure("100,00 %", labelStyle).size.width
+            with(density) { (label + pct).toDp() } + 36.dp
+        }
+        val sideBySide = maxWidth - 136.dp - 16.dp >= legendNeeds
+        // Stacked there is room for a bigger ring, which keeps the centre text readable.
+        val ringSize = if (sideBySide) 136.dp else 168.dp
+        val ring: @Composable () -> Unit = {
+            Box(Modifier.size(ringSize), contentAlignment = Alignment.Center) {
+                Donut(kinds.map { it.share }, c.ramp, selected, { selected = it }, Modifier.fillMaxSize())
+                val sel = selected?.let { kinds.getOrNull(it) }
+                // The hole is the ring minus two 27 dp strokes; stay clear of its curved edge.
+                Column(Modifier.width((ringSize - 54.dp) * 0.84f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    BasicText(
+                        sel?.let { Fmt.pct(it.share * 100.0) } ?: kinds.size.toString(), style = K.type.title, color = { c.text },
+                        maxLines = 1, softWrap = false, autoSize = TextAutoSize.StepBased(9.sp, K.type.title.fontSize),
+                    )
+                    BasicText(
+                        sel?.kind?.title ?: "Anlagearten", style = K.type.caption, color = { c.textSecondary },
+                        maxLines = 1, softWrap = false, autoSize = TextAutoSize.StepBased(8.sp, K.type.caption.fontSize),
+                    )
+                }
             }
         }
-        Spacer(Modifier.width(20.dp))
-        Column(Modifier.weight(1f)) {
-            kinds.forEachIndexed { i, k ->
-                Row(
-                    Modifier.fillMaxWidth().pressable(scaleTo = 0.97f) { if (selected == i) onKind(k.kind) else selected = i }
-                        .padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.size(10.dp).clip(CircleShape).background(c.ramp[i % c.ramp.size]))
-                    Spacer(Modifier.width(10.dp))
-                    Text(k.kind.title, style = K.type.label, color = if (selected == null || selected == i) c.text else c.textSecondary, modifier = Modifier.weight(1f))
-                    Text(Fmt.pct(k.share * 100.0), style = K.type.label, color = c.textSecondary)
+        val legend: @Composable (Modifier) -> Unit = { modifier ->
+            Column(modifier) {
+                kinds.forEachIndexed { i, k ->
+                    Row(
+                        Modifier.fillMaxWidth().pressable(scaleTo = 0.97f) { if (selected == i) onKind(k.kind) else selected = i }
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(Modifier.size(10.dp).clip(CircleShape).background(c.ramp[i % c.ramp.size]))
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            k.kind.title, style = labelStyle, color = if (selected == null || selected == i) c.text else c.textSecondary,
+                            maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(Fmt.pct(k.share * 100.0), style = labelStyle, color = c.textSecondary, maxLines = 1, softWrap = false)
+                    }
                 }
+            }
+        }
+        if (sideBySide) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ring()
+                Spacer(Modifier.width(16.dp))
+                legend(Modifier.weight(1f))
+            }
+        } else {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                ring()
+                Spacer(Modifier.height(16.dp))
+                legend(Modifier.fillMaxWidth())
             }
         }
     }
@@ -448,11 +494,11 @@ fun KindRow(kind: AssetKind, list: List<Asset>, cache: MarketCache, hidden: Bool
             if (n == 1) "1 Position" else "$n Positionen"
         }
         AssetKind.METAL -> list.filterIsInstance<MetalHolding>().groupBy { it.metal }
-            .map { (m, l) -> Fmt.ounces(l.sumOf { it.ounces }) + " " + m.title }.joinToString(" · ")
+            .map { (m, l) -> Fmt.ounces(l.sumOf { it.ounces }) + " " + m.title }.joinToString("\u00A0· ")
         AssetKind.FIXED_DEPOSIT, AssetKind.SAVINGS, AssetKind.PENSION -> {
             val interest = list.sumOf { it.yearlyInterest(cache) }
             val rate = if (value > 0) interest / value * 100 else 0.0
-            (if (list.size == 1) list.size.toString() + " Konto" else list.size.toString() + " Konten") + if (rate > 0) " · Ø " + Fmt.avgRate(rate) else ""
+            (if (list.size == 1) list.size.toString() + " Konto" else list.size.toString() + " Konten") + if (rate > 0) "\u00A0· Ø\u00A0" + Fmt.avgRate(rate) else ""
         }
         else -> if (list.size == 1) "1 Eintrag" else "${list.size} Einträge"
     }
@@ -464,8 +510,9 @@ fun KindRow(kind: AssetKind, list: List<Asset>, cache: MarketCache, hidden: Bool
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(kind.title, style = K.type.bodyStrong, color = c.text)
-            Text(subtitle, style = K.type.caption, color = c.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(subtitle, style = K.type.caption, color = c.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
+        Spacer(Modifier.width(8.dp))
         Column(horizontalAlignment = Alignment.End) {
             Text(Fmt.eur(value, hidden), style = K.type.bodyStrong, color = c.text)
             if (kind == AssetKind.DEPOT || kind == AssetKind.METAL) {
@@ -502,7 +549,7 @@ private fun NextMaturity(assets: List<Asset>, hidden: Boolean, onOpen: (String) 
         Column(Modifier.weight(1f)) {
             Text("Festgeld ${fd.bank.name}", style = K.type.bodyStrong, color = c.text, maxLines = 1)
             Text(
-                when (days) { 0L -> "Heute fällig"; 1L -> "Morgen fällig"; else -> "In $days Tagen · ${Fmt.shortDate(day)}" },
+                when (days) { 0L -> "Heute fällig"; 1L -> "Morgen fällig"; else -> "In $days Tagen\u00A0· ${Fmt.shortDate(day)}" },
                 style = K.type.caption, color = c.textSecondary,
             )
         }

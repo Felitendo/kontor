@@ -27,6 +27,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -53,6 +55,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import de.felitendo.kontor.data.model.ChartRange
 import de.felitendo.kontor.ui.Fmt
 import de.felitendo.kontor.ui.haptics.LocalHaptics
@@ -183,17 +186,26 @@ fun ChangeLabel(
         change < -0.004 -> c.negative
         else -> c.textSecondary
     }
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+    // One line with a fixed height: while scrubbing the date suffix changes length every frame,
+    // and a wrapping label would make the chart below jump up and down.
+    val height = with(LocalDensity.current) { 24.sp.toDp() }
+    Row(modifier.height(height).offset(x = (-4).dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(
             if (change >= 0) Icons.Rounded.ArrowDropUp else Icons.Rounded.ArrowDropDown, null,
-            tint = color, modifier = Modifier.size(22.dp).offset(x = (-4).dp),
+            tint = color, modifier = Modifier.size(22.dp),
         )
         val text = buildString {
-            append(if (hidden) Fmt.HIDDEN + " €" else Fmt.eur(kotlin.math.abs(change)))
+            append(if (hidden) Fmt.HIDDEN + "\u00A0€" else Fmt.eur(kotlin.math.abs(change)))
             pct?.let { append(" (" + Fmt.pct(it) + ")") }
         }
-        RollingText(text, K.type.label, color, Modifier.offset(x = (-4).dp), animate = animate)
-        suffix?.let { Text(" $it", style = K.type.label, color = c.textSecondary, modifier = Modifier.offset(x = (-4).dp)) }
+        RollingText(text, K.type.label, color, animate = animate)
+        suffix?.let {
+            Text(
+                " $it", style = K.type.label, color = c.textSecondary,
+                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+        }
     }
 }
 
@@ -230,22 +242,27 @@ fun RangeSelector(
         if (target != null) {
             Box(Modifier.offset(x = x).width(w).height(34.dp).clip(RoundedCornerShape(12.dp)).background(c.surfaceHigh))
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             ranges.forEach { r ->
                 val active = r == selected
                 val textColor by animateColorAsState(if (active) c.text else c.textSecondary, label = "rc")
                 Box(
                     Modifier
+                        .weight(1f)
                         .height(34.dp)
                         .onGloballyPositioned { positions[r] = it.positionInParentCompat() to it.size.width.toFloat() }
                         .clip(RoundedCornerShape(12.dp))
                         .clickable(remember { MutableInteractionSource() }, null) {
                             if (!active) { haptics.selection(); onSelect(r) }
                         }
-                        .padding(horizontal = 12.dp),
+                        .padding(horizontal = 2.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(r.label, style = K.type.label, color = textColor, textAlign = TextAlign.Center)
+                    BasicText(
+                        r.label, style = K.type.label.copy(textAlign = TextAlign.Center), color = { textColor },
+                        maxLines = 1, softWrap = false,
+                        autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = K.type.label.fontSize),
+                    )
                 }
             }
         }

@@ -42,6 +42,7 @@ class KontorApp : Application(), SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        container.scope.launch { container.portfolio.migrate() }
         Work.schedule(this)
     }
 
@@ -68,6 +69,7 @@ class AppContainer(val context: Context) {
     val portfolio = PortfolioRepository(stores.portfolio)
     val settings = SettingsRepository(stores.settings)
     val updater = Updater(context, http)
+    val backups = de.felitendo.kontor.data.transfer.BackupManager(context, portfolio, settings)
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private val _refreshing = MutableStateFlow(false)

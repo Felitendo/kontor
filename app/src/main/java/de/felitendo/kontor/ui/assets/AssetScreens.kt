@@ -205,11 +205,11 @@ fun PositionRow(p: Position, cache: MarketCache, hidden: Boolean, onClick: () ->
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(p.instrument.name, style = K.type.bodyStrong, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("${Fmt.qty(p.quantity)} Stk." + (q?.let { " · " + Fmt.eur(it.price) } ?: ""), style = K.type.caption, color = c.textSecondary, maxLines = 1)
+            Text("${Fmt.qty(p.quantity)} Stk." + (q?.let { "\u00A0· " + Fmt.eur(it.price) } ?: ""), style = K.type.caption, color = c.textSecondary, maxLines = 1)
         }
         Spacer(Modifier.width(8.dp))
         Column(horizontalAlignment = Alignment.End) {
-            Text(q?.let { Fmt.eur(it.price * p.quantity, hidden) } ?: "—", style = K.type.bodyStrong, color = c.text)
+            Text(q?.let { Fmt.eur(it.price * p.quantity, hidden) } ?: "…", style = K.type.bodyStrong, color = c.text)
             q?.changePct?.let { Text(Fmt.signedPct(it), style = K.type.caption, color = if (it >= 0) c.positive else c.negative) }
         }
     }
@@ -219,9 +219,9 @@ fun PositionRow(p: Position, cache: MarketCache, hidden: Boolean, onClick: () ->
 fun AssetRow(a: Asset, cache: MarketCache, hidden: Boolean, onClick: () -> Unit) {
     val c = K.colors
     val subtitle = when (a) {
-        is FixedDeposit -> Fmt.rate(a.rate) + (a.maturityDay?.let { " · bis " + Fmt.shortDate(it) } ?: "")
-        is SavingsAccount -> Fmt.rate(a.rate) + if (a.monthlyDeposit > 0) " · +" + Fmt.eur(a.monthlyDeposit, hidden, false) + "/Monat" else ""
-        is PensionContract -> listOfNotNull(a.rate?.let { Fmt.rate(it) }, a.monthlyContribution.takeIf { it > 0 }?.let { Fmt.eur(it, hidden, false) + "/Monat" }).joinToString(" · ").ifEmpty { "Riester" }
+        is FixedDeposit -> Fmt.rate(a.rate) + (a.maturityDay?.let { "\u00A0· bis " + Fmt.shortDate(it) } ?: "")
+        is SavingsAccount -> Fmt.rate(a.rate) + if (a.monthlyDeposit > 0) "\u00A0· " + monthly(a.monthlyDeposit, hidden) else ""
+        is PensionContract -> listOfNotNull(a.rate?.let { Fmt.rate(it) }, a.monthlyContribution.takeIf { it > 0 }?.let { monthly(it, hidden) }).joinToString("\u00A0· ").ifEmpty { "Riester" }
         is MetalHolding -> Fmt.ounces(a.ounces) + " " + a.metal.title
         is Depot -> "${a.positions.size} Positionen"
         is CashHolding -> "Bargeld"
@@ -235,11 +235,15 @@ fun AssetRow(a: Asset, cache: MarketCache, hidden: Boolean, onClick: () -> Unit)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(a.displayName, style = K.type.bodyStrong, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(subtitle, style = K.type.caption, color = c.textSecondary, maxLines = 1)
+            Text(subtitle, style = K.type.caption, color = c.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
-        Text(Fmt.eur(a.value(cache), hidden), style = K.type.bodyStrong, color = c.text)
+        Spacer(Modifier.width(8.dp))
+        Text(Fmt.eur(a.value(cache), hidden), style = K.type.bodyStrong, color = c.text, maxLines = 1, softWrap = false)
     }
 }
+
+/** Short enough to never be cut off next to the value column. */
+private fun monthly(v: Double, hidden: Boolean) = if (hidden) "mit Sparrate" else "+" + Fmt.eur(v, decimals = false) + "\u00A0mtl."
 
 @Composable
 fun AssetLogo(a: Asset, size: androidx.compose.ui.unit.Dp = 44.dp) = when (a) {
@@ -267,7 +271,7 @@ fun AssetDetailScreen(nav: NavController, id: String) {
     var updateBalance by remember { mutableStateOf(false) }
 
     if (asset == null) {
-        // Deleted (possibly while this screen animates out) — never pop from here, that
+        // Deleted (possibly while this screen animates out): never pop from here, that
         // would close the screen below as well.
         Column(Modifier.fillMaxSize().background(c.background)) {
             TopBar(onBack = { nav.popBackStack() })
@@ -301,7 +305,7 @@ fun AssetDetailScreen(nav: NavController, id: String) {
                         project = { d -> projectBalance(asset.balance, asset.rate, asset.monthlyDeposit, asset.balanceDay, d) },
                         stats = listOf(
                             "Zinssatz" to Fmt.rate(asset.rate),
-                            "Sparrate" to if (asset.monthlyDeposit > 0) Fmt.eur(asset.monthlyDeposit, hidden) else "—",
+                            "Sparrate" to if (asset.monthlyDeposit > 0) Fmt.eur(asset.monthlyDeposit, hidden) else "keine",
                             "Zinsen pro Jahr" to Fmt.eur(asset.yearlyInterest(cache), hidden),
                             "Zuletzt bestätigt" to Fmt.shortDate(asset.balanceDay),
                         ),
@@ -312,8 +316,8 @@ fun AssetDetailScreen(nav: NavController, id: String) {
                         value = asset.value(cache), hidden = hidden, label = "Angespart",
                         project = { d -> projectBalance(asset.balance, asset.rate ?: 0.0, asset.monthlyContribution, asset.balanceDay, d, yearlyCompounding = true) },
                         stats = listOf(
-                            "Zinssatz" to (asset.rate?.let { Fmt.rate(it) } ?: "—"),
-                            "Eigenbeitrag" to if (asset.monthlyContribution > 0) Fmt.eur(asset.monthlyContribution, hidden) + "/Monat" else "—",
+                            "Zinssatz" to (asset.rate?.let { Fmt.rate(it) } ?: "keiner"),
+                            "Eigenbeitrag" to if (asset.monthlyContribution > 0) Fmt.eur(asset.monthlyContribution, hidden) + "/Monat" else "keiner",
                             "Stand vom" to Fmt.shortDate(asset.balanceDay),
                             "Anbieter" to asset.provider.name,
                         ),
@@ -453,7 +457,7 @@ private fun MetalDetail(m: MetalHolding, cache: MarketCache, hidden: Boolean) {
 
     Column(Modifier.padding(horizontal = 20.dp)) {
         Text("${Fmt.ounces(m.ounces)} ${m.metal.title}", style = K.type.label, color = c.textSecondary)
-        RollingText(shown?.let { Fmt.eur(it, hidden) } ?: "—", K.type.hero, c.text, animate = scrub == null)
+        RollingText(shown?.let { Fmt.eur(it, hidden) } ?: "…", K.type.hero, c.text, animate = scrub == null)
         if (shown != null && base != null && base != 0.0) {
             ChangeLabel(shown - base, (shown - base) / base * 100, hidden,
                 suffix = scrub?.let { series.getOrNull(it)?.let { p -> Fmt.timestamp(p.t, range.days <= 31) } } ?: rangeText(range), animate = scrub == null)
