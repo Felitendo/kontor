@@ -45,6 +45,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
@@ -123,7 +125,14 @@ fun SettingsScreen(nav: NavController, activity: MainActivity, openUpdate: Boole
 
     Column(Modifier.fillMaxSize().background(c.background)) {
         TopBar("Einstellungen", onBack = { nav.popBackStack() })
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 32.dp).navigationBarsPadding()) {
+        val scroll = rememberScrollState()
+        var updatesY by remember { mutableStateOf<Int?>(null) }
+        // Coming from the update banner or notification: bring the update panel into view.
+        LaunchedEffect(updatesY) {
+            val y = updatesY ?: return@LaunchedEffect
+            if (openUpdate && scroll.value == 0) scroll.animateScrollTo(y)
+        }
+        Column(Modifier.weight(1f).verticalScroll(scroll).padding(bottom = 32.dp).navigationBarsPadding()) {
 
             Group("Sicherheit") {
                 SwitchRow("App-Sperre", "Gesichtserkennung, Fingerabdruck oder PIN beim Öffnen", s.lockEnabled) { on ->
@@ -158,6 +167,7 @@ fun SettingsScreen(nav: NavController, activity: MainActivity, openUpdate: Boole
                 SwitchRow("Festgeld-Erinnerungen", "30 und 7 Tage vor Fälligkeit", s.maturityReminders) { on -> set { it.copy(maturityReminders = on) } }
             }
 
+            Box(Modifier.onGloballyPositioned { updatesY = it.positionInParent().y.toInt() })
             Group("Updates") {
                 ChoiceRow("Kanal", UpdateChannel.entries.map { it to it.title }, channel) { v ->
                     set { it.copy(updateChannel = v) }
