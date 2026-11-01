@@ -137,6 +137,10 @@ fun ForecastScreen(nav: NavController) {
     }
 }
 
+/** Total wealth in [years] under the forecast assumptions. */
+fun projectTotal(assets: List<Asset>, cache: MarketCache, years: Int, stockReturn: Double): Double =
+    assets.sumOf { project(it, cache, years * 12, LocalDate.now(), stockReturn / 100.0) }
+
 private fun project(a: Asset, cache: MarketCache, months: Int, now: LocalDate, stockReturn: Double): Double {
     val day = now.plusMonths(months.toLong()).toEpochDay()
     val years = months / 12.0

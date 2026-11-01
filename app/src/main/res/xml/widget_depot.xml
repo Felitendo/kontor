@@ -2,6 +2,7 @@
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_depot_desc"
     android:initialLayout="@layout/glance_default_loading_layout"
+    android:previewImage="@drawable/widget_preview_depot"
     android:minWidth="250dp"
     android:minHeight="180dp"
     android:targetCellWidth="4"
@@ -9,6 +10,5 @@
     android:minResizeWidth="110dp"
     android:minResizeHeight="70dp"
     android:resizeMode="horizontal|vertical"
-    android:previewLayout="@layout/glance_default_loading_layout"
     android:updatePeriodMillis="0"
     android:widgetCategory="home_screen|keyguard" />

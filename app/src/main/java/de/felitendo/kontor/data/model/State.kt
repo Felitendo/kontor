@@ -73,5 +73,7 @@ data class MarketCache(
     val metals: Map<Metal, Quote> = emptyMap(),
     /** Last computed total-wealth series for widgets (1M). */
     val wealthSeries: List<SeriesPoint> = emptyList(),
+    /** Gold price per ounce in EUR over one month, for the gold widget. */
+    val goldSeries: List<SeriesPoint> = emptyList(),
     val updatedAt: Long = 0,
 )

@@ -87,6 +87,7 @@ class AppContainer(val context: Context) {
                 val series = composeHistory(p.assets, fresh, ChartRange.MONTH, market, maxPoints = 60)
                 market.saveWealthSeries(series)
             }
+            runCatching { market.refreshGoldSeries() }
             Widgets.updateAll(context)
             ok
         } finally {

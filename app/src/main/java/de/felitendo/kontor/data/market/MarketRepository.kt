@@ -106,6 +106,15 @@ class MarketRepository(
         store.updateData { it.copy(wealthSeries = points) }
     }
 
+    suspend fun refreshGoldSeries() {
+        val spot = store.data.first().metals[Metal.GOLD]?.price
+        val series = metalSeries(Metal.GOLD, ChartRange.MONTH, spot)
+        if (series.size > 2) store.updateData { it.copy(goldSeries = thin(series, 60)) }
+    }
+
+    private fun thin(points: List<SeriesPoint>, max: Int): List<SeriesPoint> =
+        if (points.size <= max) points else (0 until max).map { points[it * points.size / max] } + points.last()
+
     suspend fun metalQuote(metal: Metal): Quote? = coroutineScope {
         val spot = async { runCatching { api.metalSpot(metal) }.getOrNull() }
         val future = async { runCatching { api.chart(metal.yahooFuture, "1d", "5m") }.getOrNull() }

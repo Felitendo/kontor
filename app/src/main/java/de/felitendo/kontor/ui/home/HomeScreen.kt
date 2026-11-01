@@ -366,7 +366,11 @@ private fun InsightRow(assets: List<Asset>, cache: MarketCache, hidden: Boolean,
                 kindVector(AssetKind.METAL), iconTint = metalColor(Metal.GOLD),
             ) { if (ownsMetal) nav.navigate(Routes.Kind(AssetKind.METAL)) else nav.navigate(Routes.Add(AssetKind.METAL)) }
         }
-        InsightCard("Prognose", "In 10 Jahren", "Wohin dein Vermögen wachsen kann", Icons.AutoMirrored.Rounded.TrendingUp) {
+        val settings by LocalVm.current.settings.collectAsStateWithLifecycle()
+        val inTen = remember(assets, cache, settings?.forecastStockReturn) {
+            de.felitendo.kontor.ui.forecast.projectTotal(assets, cache, 10, settings?.forecastStockReturn ?: 5.0)
+        }
+        InsightCard("Prognose", "≈ " + Fmt.eur(inTen, hidden, decimals = false), "in 10 Jahren · tippen zum Rechnen", Icons.AutoMirrored.Rounded.TrendingUp) {
             nav.navigate(Routes.Forecast)
         }
     }

@@ -99,6 +99,11 @@ class Updater(private val context: Context, private val http: OkHttpClient) {
 
     /** Checks the channel; returns the release when it is newer than what is installed. */
     suspend fun check(channel: UpdateChannel): Release? {
+        if (BuildConfig.DEBUG) {
+            // Debug builds have their own package name and key; they cannot take release APKs.
+            _state.value = UpdateState.Failed("Debug-Builds aktualisieren sich nicht selbst.")
+            return null
+        }
         _state.value = UpdateState.Checking
         val latest = try {
             fetch(channel)

@@ -7,6 +7,8 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Shader
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -29,6 +31,7 @@ import androidx.glance.background
 import androidx.glance.color.ColorProvider
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
+import androidx.glance.layout.ContentScale
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
@@ -82,6 +85,19 @@ private suspend fun snapshot(context: Context): Snapshot {
     return Snapshot(c.portfolio.data.first(), c.market.cache.first(), c.settings.data.first())
 }
 
+/**
+ * Glance keeps a widget session alive between updates, so the data has to be observed
+ * inside the composition — values read before provideContent would go stale.
+ */
+@Composable
+private fun liveSnapshot(context: Context, initial: Snapshot): Snapshot {
+    val c = context.container
+    val p by c.portfolio.data.collectAsState(initial.portfolio)
+    val m by c.market.cache.collectAsState(initial.cache)
+    val st by c.settings.data.collectAsState(initial.settings)
+    return Snapshot(p, m, st)
+}
+
 // Widgets follow the system's light/dark mode but stay strictly monochrome.
 private val Bg = ColorProvider(day = Color.White, night = Color.Black)
 private val Fg = ColorProvider(day = Color.Black, night = Color.White)
@@ -109,7 +125,7 @@ private fun Change(change: Double, base: Double, hidden: Boolean, suffix: String
     val pct = if (base - change != 0.0) change / (base - change) * 100 else 0.0
     val color = if (change >= 0) Up else Down
     val arrow = if (change >= 0) "▲" else "▼"
-    val text = if (hidden) "$arrow ${Fmt.signedPct(pct)}" else "$arrow ${Fmt.eur(kotlin.math.abs(change))} · ${Fmt.pct(pct)}"
+    val text = if (hidden) "$arrow ${Fmt.pct(pct)}" else "$arrow ${Fmt.eur(kotlin.math.abs(change))} · ${Fmt.pct(pct)}"
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(text, style = TextStyle(color = color, fontSize = 12.sp, fontWeight = FontWeight.Medium), maxLines = 1)
         Text("  $suffix", style = TextStyle(color = Muted, fontSize = 12.sp), maxLines = 1)
@@ -117,15 +133,16 @@ private fun Change(change: Double, base: Double, hidden: Boolean, suffix: String
 }
 
 class WealthWidget : GlanceAppWidget() {
-    override val sizeMode = SizeMode.Responsive(setOf(DpSize(150.dp, 80.dp), DpSize(250.dp, 110.dp), DpSize(250.dp, 200.dp)))
+    override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val s = snapshot(context)
-        val total = s.portfolio.assets.sumOf { it.value(s.cache) }
-        val change = s.portfolio.assets.sumOf { it.dayChange(s.cache) }
-        val kinds = s.portfolio.assets.byKind(s.cache)
-        val spark = s.cache.wealthSeries
+        val initial = snapshot(context)
         provideContent {
+            val s = liveSnapshot(context, initial)
+            val total = s.portfolio.assets.sumOf { it.value(s.cache) }
+            val change = s.portfolio.assets.sumOf { it.dayChange(s.cache) }
+            val kinds = s.portfolio.assets.byKind(s.cache)
+            val spark = s.cache.wealthSeries
             val size = LocalSize.current
             Frame {
                 Column(GlanceModifier.fillMaxSize()) {
@@ -139,11 +156,20 @@ class WealthWidget : GlanceAppWidget() {
                     Change(change, total, s.hidden)
                     if (size.height >= 110.dp && size.width >= 250.dp && spark.size > 2) {
                         Spacer(GlanceModifier.height(8.dp))
-                        val h = if (size.height >= 200.dp) 70 else 34
-                        Image(ImageProvider(sparkline(context, spark, size.width.value.toInt() - 32, h)), "Verlauf", GlanceModifier.fillMaxWidth().height(h.dp))
+                        // The chart takes whatever height is left; the bitmap is stretched to fit.
+                        val h = when {
+                            size.height >= 270.dp -> 90
+                            size.height >= 170.dp -> 70
+                            else -> 30
+                        }
+                        Image(
+                            ImageProvider(sparkline(context, spark, size.width.value.toInt() - 32, h)), "Verlauf",
+                            GlanceModifier.fillMaxWidth().defaultWeight(),
+                            contentScale = ContentScale.FillBounds,
+                        )
                     }
-                    if (size.height >= 200.dp && kinds.isNotEmpty()) {
-                        Spacer(GlanceModifier.height(10.dp))
+                    if (size.height >= 270.dp && kinds.isNotEmpty()) {
+                        Spacer(GlanceModifier.height(8.dp))
                         kinds.take(3).forEach { k ->
                             Row(GlanceModifier.fillMaxWidth().padding(vertical = 2.dp)) {
                                 Text(k.kind.title, style = TextStyle(color = Fg, fontSize = 13.sp), modifier = GlanceModifier.defaultWeight())
@@ -161,22 +187,27 @@ class WealthWidget : GlanceAppWidget() {
 }
 
 class DepotWidget : GlanceAppWidget() {
-    override val sizeMode = SizeMode.Responsive(setOf(DpSize(150.dp, 80.dp), DpSize(250.dp, 180.dp)))
+    override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val s = snapshot(context)
-        val depots = s.portfolio.assets.filterIsInstance<Depot>()
-        val value = depots.sumOf { it.value(s.cache) }
-        val change = depots.sumOf { it.dayChange(s.cache) }
-        val positions = depots.flatMap { it.positions }
-            .groupBy { it.instrument.isin }
-            .map { (_, list) -> list.first().instrument to list.sumOf { it.quantity } }
-            .sortedByDescending { (i, q) -> (s.cache.quotes[i.isin]?.price ?: 0.0) * q }
+        val initial = snapshot(context)
         provideContent {
+            val s = liveSnapshot(context, initial)
+            val depots = s.portfolio.assets.filterIsInstance<Depot>()
+            val value = depots.sumOf { it.value(s.cache) }
+            val change = depots.sumOf { it.dayChange(s.cache) }
+            val positions = depots.flatMap { it.positions }
+                .groupBy { it.instrument.isin }
+                .map { (_, list) -> list.first().instrument to list.sumOf { it.quantity } }
+                .sortedByDescending { (i, q) -> (s.cache.quotes[i.isin]?.price ?: 0.0) * q }
             val size = LocalSize.current
             Frame {
                 Column(GlanceModifier.fillMaxSize()) {
-                    Label("Depot")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Image(ImageProvider(R.drawable.ic_widget_mark), null, GlanceModifier.size(14.dp))
+                        Spacer(GlanceModifier.width(6.dp))
+                        Label(depots.singleOrNull()?.name ?: "Depot")
+                    }
                     Spacer(GlanceModifier.height(6.dp))
                     if (depots.isEmpty()) {
                         Text("Noch kein Depot angelegt", style = TextStyle(color = Muted, fontSize = 13.sp))
@@ -185,11 +216,16 @@ class DepotWidget : GlanceAppWidget() {
                         Change(change, value, s.hidden)
                         if (size.height >= 180.dp) {
                             Spacer(GlanceModifier.height(10.dp))
-                            positions.take(4).forEach { (instrument, _) ->
+                            // As many rows as the widget is tall.
+                            val rows = ((size.height.value - 130) / 26).toInt().coerceIn(1, 8)
+                            positions.take(rows).forEach { (instrument, qty) ->
                                 val q = s.cache.quotes[instrument.isin]
                                 val pct = q?.changePct ?: 0.0
-                                Row(GlanceModifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Row(GlanceModifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text(instrument.name, style = TextStyle(color = Fg, fontSize = 13.sp), maxLines = 1, modifier = GlanceModifier.defaultWeight())
+                                    if (!s.hidden && size.width >= 300.dp && q != null) {
+                                        Text(Fmt.eur(q.price * qty, decimals = false) + "  ", style = TextStyle(color = Muted, fontSize = 13.sp), maxLines = 1)
+                                    }
                                     Text(Fmt.signedPct(pct), style = TextStyle(color = if (pct >= 0) Up else Down, fontSize = 13.sp, fontWeight = FontWeight.Medium))
                                 }
                             }
@@ -202,13 +238,15 @@ class DepotWidget : GlanceAppWidget() {
 }
 
 class GoldWidget : GlanceAppWidget() {
-    override val sizeMode = SizeMode.Responsive(setOf(DpSize(110.dp, 80.dp), DpSize(180.dp, 110.dp)))
+    override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val s = snapshot(context)
-        val quote = s.cache.metals[Metal.GOLD]
-        val ounces = s.portfolio.assets.filterIsInstance<MetalHolding>().filter { it.metal == Metal.GOLD }.sumOf { it.ounces }
+        val initial = snapshot(context)
         provideContent {
+            val s = liveSnapshot(context, initial)
+            val quote = s.cache.metals[Metal.GOLD]
+            val ounces = s.portfolio.assets.filterIsInstance<MetalHolding>().filter { it.metal == Metal.GOLD }.sumOf { it.ounces }
+            val gold = s.cache.goldSeries
             val size = LocalSize.current
             Frame {
                 Column(GlanceModifier.fillMaxSize()) {
@@ -220,13 +258,24 @@ class GoldWidget : GlanceAppWidget() {
                     Spacer(GlanceModifier.height(6.dp))
                     Big(quote?.let { Fmt.eur(it.price, decimals = size.width > 150.dp) } ?: "—", if (size.width > 150.dp) 24 else 20)
                     quote?.changePct?.let { pct ->
-                        Text(
-                            (if (pct >= 0) "▲ " else "▼ ") + Fmt.signedPct(pct) + "  Heute",
-                            style = TextStyle(color = if (pct >= 0) Up else Down, fontSize = 12.sp, fontWeight = FontWeight.Medium),
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                (if (pct >= 0) "▲ " else "▼ ") + Fmt.pct(pct),
+                                style = TextStyle(color = if (pct >= 0) Up else Down, fontSize = 12.sp, fontWeight = FontWeight.Medium),
+                            )
+                            Text("  Heute", style = TextStyle(color = Muted, fontSize = 12.sp))
+                        }
+                    }
+                    if (size.height >= 150.dp && gold.size > 2) {
+                        Spacer(GlanceModifier.height(8.dp))
+                        Image(
+                            ImageProvider(sparkline(context, gold, size.width.value.toInt() - 32, 50)), "Goldpreis, 1 Monat",
+                            GlanceModifier.fillMaxWidth().defaultWeight(),
+                            contentScale = ContentScale.FillBounds,
                         )
                     }
                     if (ounces > 0 && size.height >= 110.dp && quote != null) {
-                        Spacer(GlanceModifier.height(8.dp))
+                        Spacer(GlanceModifier.height(6.dp))
                         Text("Dein Gold: " + Fmt.eur(quote.price * ounces, s.hidden, decimals = false), style = TextStyle(color = Muted, fontSize = 12.sp), maxLines = 1)
                     }
                 }
@@ -262,6 +311,5 @@ private fun sparkline(context: Context, points: List<SeriesPoint>, widthDp: Int,
     canvas.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE; strokeWidth = 2 * d; this.color = color; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
     })
-    canvas.drawCircle(x(points.size - 1), y(points.last().v), 3.5f * d, Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color })
     return bmp
 }

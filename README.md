@@ -48,6 +48,14 @@
   <img src="docs/screenshots/keypad.png" width="19%" />
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/widget-wealth.png" width="46%" />
+  <img src="docs/screenshots/widget-gold.png" width="22%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/widget-depot.png" width="46%" />
+</p>
+
 ## Installieren
 
 1. Die neueste `Kontor-x.y.z.apk` von den [Releases](https://github.com/Felitendo/kontor/releases/latest) herunterladen.
