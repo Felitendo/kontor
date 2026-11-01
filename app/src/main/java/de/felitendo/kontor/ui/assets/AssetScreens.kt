@@ -152,6 +152,11 @@ fun KindScreen(nav: NavController, kind: AssetKind) {
 
                 if (kind == AssetKind.DEPOT) {
                     list.filterIsInstance<Depot>().forEach { d -> DepotBlock(d, cache, hidden, nav) }
+                } else if (list.isEmpty()) {
+                    Text(
+                        "Hier ist noch nichts erfasst.",
+                        style = K.type.body, color = c.textSecondary, modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp),
+                    )
                 } else {
                     SectionHeader(if (list.size == 1) "Eintrag" else "Einträge")
                     list.forEach { a -> AssetRow(a, cache, hidden) { nav.navigate(Routes.Detail(a.id)) } }
@@ -262,7 +267,12 @@ fun AssetDetailScreen(nav: NavController, id: String) {
     var updateBalance by remember { mutableStateOf(false) }
 
     if (asset == null) {
-        LaunchedEffect(Unit) { nav.popBackStack() }
+        // Deleted (possibly while this screen animates out) — never pop from here, that
+        // would close the screen below as well.
+        Column(Modifier.fillMaxSize().background(c.background)) {
+            TopBar(onBack = { nav.popBackStack() })
+            Text("Dieser Eintrag existiert nicht mehr.", style = K.type.body, color = c.textSecondary, modifier = Modifier.padding(20.dp))
+        }
         return
     }
     val scroll = rememberScrollState()
