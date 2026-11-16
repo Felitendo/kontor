@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import de.felitendo.kontor.birthday.Birthday
 import de.felitendo.kontor.container
 import de.felitendo.kontor.data.model.Asset
 import de.felitendo.kontor.data.model.MarketCache
@@ -31,6 +32,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Set while the app is locked behind biometrics. */
     val locked = MutableStateFlow(false)
+
+    /** The birthday party overlay; it waits behind the lock screen until unlocked. */
+    val party = MutableStateFlow(false)
+
+    /** Starts the party when the app opens on Helli's birthday. */
+    fun requestParty() {
+        val s = settings.value ?: return
+        if (s.onboardingDone && Birthday.isToday()) party.value = true
+    }
 
     fun refresh(force: Boolean = false) {
         viewModelScope.launch { c.refresh(if (force) 0 else 2 * 60_000L) }

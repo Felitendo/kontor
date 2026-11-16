@@ -19,6 +19,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import de.felitendo.kontor.MainActivity
 import de.felitendo.kontor.R
+import de.felitendo.kontor.birthday.Birthday
 import de.felitendo.kontor.container
 import de.felitendo.kontor.data.model.FixedDeposit
 import de.felitendo.kontor.domain.maturityDay
@@ -45,6 +46,7 @@ object Work {
             ExistingPeriodicWorkPolicy.KEEP,
             PeriodicWorkRequestBuilder<DailyWorker>(12, TimeUnit.HOURS).build(),
         )
+        Birthday.schedule(context)
     }
 
     private fun createChannels(context: Context) {
@@ -90,6 +92,9 @@ class DailyWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
     override suspend fun doWork(): Result {
         val c = applicationContext.container
         val settings = c.settings.current()
+
+        // In case the morning greeting was swallowed (phone off, battery saver).
+        if (settings.onboardingDone) Birthday.greet(applicationContext)
 
         if (settings.maturityReminders) {
             val now = today()

@@ -44,7 +44,7 @@ import kotlin.math.roundToInt
 fun LineChart(
     values: List<Double>,
     modifier: Modifier = Modifier,
-    color: Color = K.colors.text,
+    color: Color = K.colors.chart,
     baseline: Double? = null,
     live: Boolean = false,
     onScrub: (Int?) -> Unit = {},

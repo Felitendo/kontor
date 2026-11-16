@@ -149,7 +149,13 @@ class WealthWidget : GlanceAppWidget() {
                     Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Image(ImageProvider(R.drawable.ic_widget_mark), null, GlanceModifier.size(14.dp))
                         Spacer(GlanceModifier.width(6.dp))
-                        Label("Vermögen")
+                        Label(
+                            when {
+                                !de.felitendo.kontor.birthday.Birthday.isToday() -> "Vermögen"
+                                total >= 1_000_000 -> "Millionär mit ${de.felitendo.kontor.birthday.Birthday.age()}! \uD83C\uDF82"
+                                else -> "${de.felitendo.kontor.birthday.Birthday.age()} und kein Millionär \uD83D\uDE04"
+                            },
+                        )
                     }
                     Spacer(GlanceModifier.height(6.dp))
                     Big(Fmt.eur(total, s.hidden, decimals = size.width > 200.dp), if (size.width > 200.dp) 28 else 22)

@@ -50,6 +50,7 @@ import de.felitendo.kontor.ui.assets.AddAssetScreen
 import de.felitendo.kontor.ui.assets.AssetDetailScreen
 import de.felitendo.kontor.ui.assets.EditAssetScreen
 import de.felitendo.kontor.ui.assets.KindScreen
+import de.felitendo.kontor.ui.birthday.BirthdayParty
 import de.felitendo.kontor.ui.forecast.ForecastScreen
 import de.felitendo.kontor.ui.home.HomeScreen
 import de.felitendo.kontor.ui.instrument.InstrumentScreen
@@ -92,6 +93,7 @@ fun KontorRoot(activity: MainActivity) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val portfolio by vm.portfolio.collectAsStateWithLifecycle()
     val locked by vm.locked.collectAsStateWithLifecycle()
+    val party by vm.party.collectAsStateWithLifecycle()
     val s = settings ?: return
     if (portfolio == null) return
     val nav = rememberNavController()
@@ -120,6 +122,7 @@ fun KontorRoot(activity: MainActivity) {
     Box(Modifier.fillMaxSize().background(K.colors.background)) {
         KontorNavHost(nav, startOnboarding = !s.onboardingDone, activity = activity)
         ShakeToast(shakeToast, Modifier.align(Alignment.TopCenter))
+        BirthdayParty(visible = party && !locked) { vm.party.value = false }
         AnimatedVisibility(
             visible = locked,
             enter = fadeIn(tween(0)),

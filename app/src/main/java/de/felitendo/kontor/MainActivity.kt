@@ -21,6 +21,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import de.felitendo.kontor.birthday.Birthday
 import de.felitendo.kontor.data.model.ThemeMode
 import de.felitendo.kontor.ui.AppViewModel
 import de.felitendo.kontor.ui.KontorRoot
@@ -46,9 +47,15 @@ class MainActivity : FragmentActivity() {
     /** The PIN fallback of the biometric prompt is its own activity; don't re-lock right after it. */
     var unlockedAt = 0L
 
+    /** Whether the content was built for the birthday; checked again whenever the app returns. */
+    private var birthdayLook = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
+        // Before the lifecycle observer below: it gets an immediate onStart when the activity is
+        // recreated while the app is in the foreground, and compares against this value.
+        birthdayLook = Birthday.isToday()
         enableEdgeToEdge()
         splash.setKeepOnScreenCondition { vm.settings.value == null || vm.portfolio.value == null }
         pendingOpen.value = intent.getStringExtra(EXTRA_OPEN)
@@ -56,6 +63,7 @@ class MainActivity : FragmentActivity() {
         lifecycleScope.launch {
             val s = vm.settings.filterNotNull().first()
             if (s.lockEnabled && savedInstanceState == null) vm.locked.value = true
+            if (savedInstanceState == null) vm.requestParty()
         }
         lifecycleScope.launch {
             vm.settings.filterNotNull().collect { s ->
@@ -74,11 +82,15 @@ class MainActivity : FragmentActivity() {
         override fun onStart(owner: LifecycleOwner) {
             val s = vm.settings.value ?: return
             vm.refresh()
+            // Left open over midnight into or out of the birthday: rebuild with the right look.
+            if (Birthday.isToday() != birthdayLook) recreate()
             if (suppressNextLock) { suppressNextLock = false; return }
             if (SystemClock.elapsedRealtime() - unlockedAt < 3000) return
-            if (s.lockEnabled && backgroundAt > 0 && SystemClock.elapsedRealtime() - backgroundAt >= s.lockTimeout * 1000L) {
+            val away = if (backgroundAt > 0) SystemClock.elapsedRealtime() - backgroundAt else 0L
+            if (s.lockEnabled && backgroundAt > 0 && away >= s.lockTimeout * 1000L) {
                 vm.locked.value = true
             }
+            if (away >= 60_000L) vm.requestParty()
         }
     }
 
@@ -88,6 +100,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun setContentRoot() {
+        val birthday = birthdayLook
         setContent {
             val settings by vm.settings.collectAsStateWithLifecycle()
             val systemDark = isSystemInDarkTheme()
@@ -104,7 +117,7 @@ class MainActivity : FragmentActivity() {
                 enableEdgeToEdge(style, style)
                 onDispose {}
             }
-            KontorTheme(dark) {
+            KontorTheme(dark, birthday) {
                 val haptics = rememberHaptics(enabled = { hapticsOn }, strong = { hapticsStrong })
                 CompositionLocalProvider(LocalVm provides vm, LocalHaptics provides haptics) {
                     KontorRoot(this@MainActivity)

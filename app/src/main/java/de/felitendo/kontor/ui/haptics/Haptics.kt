@@ -138,6 +138,36 @@ class Haptics(context: Context, private val enabled: () -> Boolean, private val 
         ) ?: predefined(VibrationEffect.EFFECT_HEAVY_CLICK)
     }
 
+    /** Birthday fireworks: a deep boom that crackles out. */
+    fun boom() = fire({ pattern(longArrayOf(0, 45, 50, 12, 35, 12, 35, 10), intArrayOf(0, 255, 0, 140, 0, 100, 0, 70)) }) {
+        composition(
+            Triple(Composition.PRIMITIVE_THUD, 1f, 0),
+            Triple(Composition.PRIMITIVE_TICK, 0.7f, 60),
+            Triple(Composition.PRIMITIVE_TICK, 0.55f, 35),
+            Triple(Composition.PRIMITIVE_TICK, 0.4f, 35),
+        ) ?: predefined(VibrationEffect.EFFECT_HEAVY_CLICK)
+    }
+
+    /** "Ba-dum", for the beating heart on the birthday screen. */
+    fun heartbeat() = fire({ pattern(longArrayOf(0, 28, 110, 45), intArrayOf(0, 170, 0, 255)) }) {
+        composition(
+            Triple(Composition.PRIMITIVE_CLICK, 0.7f, 0),
+            Triple(Composition.PRIMITIVE_THUD, 1f, 110),
+        ) ?: predefined(VibrationEffect.EFFECT_DOUBLE_CLICK)
+    }
+
+    /** A drum roll that gets faster for about [millis]. */
+    suspend fun drumroll(millis: Long) {
+        var elapsed = 0L
+        var gap = 90L
+        while (elapsed < millis) {
+            tick()
+            kotlinx.coroutines.delay(gap)
+            elapsed += gap
+            gap = (gap - 7).coerceAtLeast(38)
+        }
+    }
+
     /** Settings "Testen": the whole vocabulary in a row. */
     suspend fun demo() {
         click(); kotlinx.coroutines.delay(260)

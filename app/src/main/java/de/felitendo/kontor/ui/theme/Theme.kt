@@ -30,10 +30,16 @@ data class KontorColors(
     val negative: Color,
     /** Grey ramp used for allocation segments, brightest first. */
     val ramp: List<Color>,
+    /** Only the colourful birthday palette sets these; the normal app stays black and white. */
+    val accentColor: Color? = null,
+    val onAccentColor: Color? = null,
+    val chartColor: Color? = null,
 ) {
     /** Primary action: inverted pill. */
-    val accent get() = text
-    val onAccent get() = background
+    val accent get() = accentColor ?: text
+    val onAccent get() = onAccentColor ?: background
+    /** Line of every chart. */
+    val chart get() = chartColor ?: text
 }
 
 val DarkColors = KontorColors(
@@ -48,6 +54,41 @@ val DarkColors = KontorColors(
     positive = Color(0xFF2BD67B),
     negative = Color(0xFFFF5247),
     ramp = listOf(0xFFFFFFFF, 0xFFC7C7CC, 0xFF97979C, 0xFF6E6E73, 0xFF4F4F53, 0xFF38383B, 0xFF2A2A2D).map { Color(it) },
+)
+
+/** Helli's birthday: the same layout, but in colour. */
+val BirthdayDarkColors = KontorColors(
+    isDark = true,
+    background = Color(0xFF0D0718),
+    surface = Color(0xFF1A1030),
+    surfaceHigh = Color(0xFF2A1A47),
+    outline = Color(0xFF2F2150),
+    text = Color(0xFFFFFFFF),
+    textSecondary = Color(0xFFB3A6D6),
+    textTertiary = Color(0xFF655887),
+    positive = Color(0xFF2BD67B),
+    negative = Color(0xFFFF5247),
+    ramp = listOf(0xFFFF3B6B, 0xFFFFC21A, 0xFF2BD67B, 0xFF3BA4FF, 0xFFA155FF, 0xFFFF7A1A, 0xFF00D9D9).map { Color(it) },
+    accentColor = Color(0xFFFF3B6B),
+    onAccentColor = Color(0xFFFFFFFF),
+    chartColor = Color(0xFFFFC21A),
+)
+
+val BirthdayLightColors = KontorColors(
+    isDark = false,
+    background = Color(0xFFFFF7FB),
+    surface = Color(0xFFFCEAF4),
+    surfaceHigh = Color(0xFFF7DAEA),
+    outline = Color(0xFFF2D0E2),
+    text = Color(0xFF2B0F3A),
+    textSecondary = Color(0xFF7B5A8C),
+    textTertiary = Color(0xFFC3A8CF),
+    positive = Color(0xFF00A35C),
+    negative = Color(0xFFE5372D),
+    ramp = listOf(0xFFE6246A, 0xFFF29E00, 0xFF13A86A, 0xFF1E7FE0, 0xFF8A3FE8, 0xFFF2620F, 0xFF00A8A8).map { Color(it) },
+    accentColor = Color(0xFFE6246A),
+    onAccentColor = Color(0xFFFFFFFF),
+    chartColor = Color(0xFFE6246A),
 )
 
 val LightColors = KontorColors(
@@ -112,18 +153,22 @@ object K {
 }
 
 @Composable
-fun KontorTheme(dark: Boolean, content: @Composable () -> Unit) {
-    val c = if (dark) DarkColors else LightColors
+fun KontorTheme(dark: Boolean, birthday: Boolean = false, content: @Composable () -> Unit) {
+    val c = when {
+        birthday -> if (dark) BirthdayDarkColors else BirthdayLightColors
+        dark -> DarkColors
+        else -> LightColors
+    }
     val scheme = if (dark) {
         darkColorScheme(
-            primary = c.text, onPrimary = c.background, background = c.background, onBackground = c.text,
+            primary = c.accent, onPrimary = c.onAccent, background = c.background, onBackground = c.text,
             surface = c.background, onSurface = c.text, surfaceVariant = c.surface, onSurfaceVariant = c.textSecondary,
             surfaceContainer = c.surface, surfaceContainerHigh = c.surfaceHigh, surfaceContainerLow = c.surface,
             outline = c.outline, outlineVariant = c.outline, secondary = c.textSecondary, error = c.negative,
         )
     } else {
         lightColorScheme(
-            primary = c.text, onPrimary = c.background, background = c.background, onBackground = c.text,
+            primary = c.accent, onPrimary = c.onAccent, background = c.background, onBackground = c.text,
             surface = c.background, onSurface = c.text, surfaceVariant = c.surface, onSurfaceVariant = c.textSecondary,
             surfaceContainer = c.surface, surfaceContainerHigh = c.surfaceHigh, surfaceContainerLow = c.surface,
             outline = c.outline, outlineVariant = c.outline, secondary = c.textSecondary, error = c.negative,

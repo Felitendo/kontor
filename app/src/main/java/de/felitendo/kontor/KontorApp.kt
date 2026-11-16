@@ -41,6 +41,7 @@ class KontorApp : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        de.felitendo.kontor.birthday.Birthday.init(this)
         container = AppContainer(this)
         container.scope.launch { container.portfolio.migrate() }
         Work.schedule(this)

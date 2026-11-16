@@ -200,7 +200,35 @@ fun SettingsScreen(nav: NavController, activity: MainActivity, openUpdate: Boole
             }
 
             Group("Über Kontor") {
-                InfoRow("Version", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+                val bd = de.felitendo.kontor.birthday.Birthday
+                if (bd.isToday()) {
+                    LinkRow(
+                        "Geburtstags-Edition \uD83C\uDF82",
+                        if (bd.testMode) "Testmodus an. 7× auf Version tippen zum Ausschalten"
+                        else "Für ${bd.NAME} (${bd.age()}), von ${bd.FROM}. Tippen für Konfetti",
+                    ) {
+                        vm.party.value = true
+                    }
+                }
+                // Seven quick taps switch the birthday test mode on or off, like Android's developer options.
+                var versionTaps by remember { mutableStateOf(0) }
+                var lastVersionTap by remember { mutableStateOf(0L) }
+                InfoRow("Version", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})") {
+                    val now = android.os.SystemClock.elapsedRealtime()
+                    versionTaps = if (now - lastVersionTap < 1200) versionTaps + 1 else 1
+                    lastVersionTap = now
+                    if (versionTaps >= 7) {
+                        versionTaps = 0
+                        val on = !bd.testMode
+                        bd.setTestMode(activity, on)
+                        haptics.success()
+                        if (on) vm.party.value = true
+                        // Theme, home screen and lock screen read the mode once; start them fresh.
+                        activity.recreate()
+                    } else if (versionTaps >= 3) {
+                        haptics.tick()
+                    }
+                }
                 InfoRow("Build-Kanal", if (BuildConfig.CHANNEL == "stable") "Stable" else "Dev")
                 LinkRow("Quellcode auf GitHub", "github.com/${BuildConfig.GITHUB_REPO}", external = true) { uri.openUri("https://github.com/${BuildConfig.GITHUB_REPO}") }
                 LinkRow("Lizenz", "GNU General Public License v3.0", external = true) { uri.openUri("https://www.gnu.org/licenses/gpl-3.0.html") }
@@ -385,9 +413,10 @@ private fun LinkRow(title: String, subtitle: String?, destructive: Boolean = fal
 }
 
 @Composable
-private fun InfoRow(title: String, value: String) {
+private fun InfoRow(title: String, value: String, onClick: (() -> Unit)? = null) {
     val c = K.colors
-    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) {
+    val tap = if (onClick != null) Modifier.pressable(scaleTo = 1f, haptic = false, onClick = onClick) else Modifier
+    Row(Modifier.fillMaxWidth().then(tap).padding(horizontal = 20.dp, vertical = 12.dp)) {
         Text(title, style = K.type.body, color = c.textSecondary, modifier = Modifier.weight(1f))
         Text(value, style = K.type.bodyStrong, color = c.text)
     }

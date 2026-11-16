@@ -21,8 +21,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import de.felitendo.kontor.MainActivity
+import de.felitendo.kontor.birthday.Birthday
 import de.felitendo.kontor.ui.LocalVm
 import de.felitendo.kontor.ui.components.AnimatedLogo
 import de.felitendo.kontor.ui.components.SecondaryButton
@@ -61,9 +63,16 @@ fun LockScreen(activity: MainActivity) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             AnimatedLogo(Modifier.size(96.dp), animate = false)
             Spacer(Modifier.height(20.dp))
-            Text("Kontor ist gesperrt", style = K.type.title, color = c.text)
+            val birthday = remember { Birthday.isToday() }
+            Text(
+                if (birthday) "${Birthday.age()} Jahre, ${Birthday.NAME}! \uD83C\uDF82" else "Kontor ist gesperrt",
+                style = K.type.title, color = c.text, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 24.dp),
+            )
             Spacer(Modifier.height(6.dp))
-            Text("Entsperre mit Gesicht, Fingerabdruck oder PIN.", style = K.type.caption, color = c.textSecondary)
+            Text(
+                if (birthday) "Entsperr mal, da wartet was auf dich. Leider keine Million." else "Entsperre mit Gesicht, Fingerabdruck oder PIN.",
+                style = K.type.caption, color = c.textSecondary, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 24.dp),
+            )
         }
         Column(
             Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 32.dp),

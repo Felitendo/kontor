@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -66,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import de.felitendo.kontor.birthday.Birthday
 import de.felitendo.kontor.data.model.Asset
 import de.felitendo.kontor.data.model.AssetKind
 import de.felitendo.kontor.data.model.ChartRange
@@ -85,6 +87,9 @@ import de.felitendo.kontor.domain.yearlyInterest
 import de.felitendo.kontor.ui.Fmt
 import de.felitendo.kontor.ui.LocalVm
 import de.felitendo.kontor.ui.Routes
+import de.felitendo.kontor.ui.birthday.BirthdayCard
+import de.felitendo.kontor.ui.birthday.ConfettiLayer
+import de.felitendo.kontor.ui.birthday.rememberConfetti
 import de.felitendo.kontor.ui.components.ChangeLabel
 import de.felitendo.kontor.ui.components.Donut
 import de.felitendo.kontor.ui.components.IconCircleButton
@@ -118,6 +123,7 @@ fun HomeScreen(nav: NavController) {
     val assets = portfolio?.assets.orEmpty()
     val s = settings ?: return
     val hidden = s.hideAmounts
+    val birthday = remember { Birthday.isToday() }
 
     var range by remember { mutableStateOf(s.homeRange) }
     var series by remember { mutableStateOf<List<SeriesPoint>>(emptyList()) }
@@ -140,11 +146,19 @@ fun HomeScreen(nav: NavController) {
     val base = if (range == ChartRange.DAY) total - dayChange else values.firstOrNull() ?: total
     val change = shown - base
 
+    // On the birthday a light confetti drizzle stays on the home screen all day.
+    val confetti = if (birthday) rememberConfetti() else null
+    LaunchedEffect(confetti) { confetti?.apply { rainRate = 7f; emojiShare = 0.12f } }
+
     val pull = rememberPullToRefreshState()
     LaunchedEffect(pull) {
         var armed = false
         snapshotFlow { pull.distanceFraction }.collect { f ->
-            if (f >= 1f && !armed) { armed = true; haptics.heavy() }
+            if (f >= 1f && !armed) {
+                armed = true
+                if (confetti != null) haptics.boom() else haptics.heavy()
+                confetti?.let { it.burst(androidx.compose.ui.geometry.Offset(it.size.width / 2, it.size.height * 0.18f), 120, power = 0.8f, emojiShare = 0.15f) }
+            }
             if (f < 0.5f) armed = false
         }
     }
@@ -165,9 +179,14 @@ fun HomeScreen(nav: NavController) {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                 HomeTopBar(
                     hidden = hidden,
+                    birthday = birthday,
                     onToggleHidden = { haptics.toggle(!hidden); vm.updateSettings { it.copy(hideAmounts = !it.hideAmounts) } },
                     onSettings = { nav.navigate(Routes.Settings()) },
                 )
+
+                if (birthday) {
+                    BirthdayCard(total >= 1_000_000, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 20.dp)) { vm.party.value = true }
+                }
 
                 if (assets.isEmpty()) {
                     EmptyHome { showAdd = true }
@@ -250,6 +269,7 @@ fun HomeScreen(nav: NavController) {
                 androidx.compose.ui.graphics.Brush.verticalGradient(listOf(c.background, c.background, c.background.copy(alpha = 0f))),
             ).statusBarsPadding().height(12.dp),
         )
+        confetti?.let { ConfettiLayer(it) }
         AddButton(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp)) { showAdd = true }
     }
 
@@ -270,15 +290,17 @@ fun HomeScreen(nav: NavController) {
 }
 
 @Composable
-private fun HomeTopBar(hidden: Boolean, onToggleHidden: () -> Unit, onSettings: () -> Unit) {
+private fun HomeTopBar(hidden: Boolean, birthday: Boolean, onToggleHidden: () -> Unit, onSettings: () -> Unit) {
     val c = K.colors
-    val greeting = when (LocalTime.now().hour) {
-        in 5..10 -> "Guten Morgen"
-        in 11..17 -> "Guten Tag"
+    val greeting = when {
+        birthday -> "Alles Gute, ${Birthday.NAME}! \uD83C\uDF82"
+        LocalTime.now().hour in 5..10 -> "Guten Morgen"
+        LocalTime.now().hour in 11..17 -> "Guten Tag"
         else -> "Guten Abend"
     }
     Row(
-        Modifier.fillMaxWidth().statusBarsPadding().height(64.dp).padding(horizontal = 20.dp),
+        // At large font sizes the birthday greeting may need a second line.
+        Modifier.fillMaxWidth().statusBarsPadding().heightIn(min = 64.dp).padding(horizontal = 20.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(greeting, style = K.type.title, color = c.text, modifier = Modifier.weight(1f))
