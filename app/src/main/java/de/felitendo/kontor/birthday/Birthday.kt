@@ -15,7 +15,7 @@ import java.time.LocalDateTime
 import java.util.concurrent.TimeUnit
 
 /**
- * Helli's birthday (19 November). On that day Kontor throws a party: confetti when the app
+ * Helli's birthday (20 November). On that day Kontor throws a party: confetti when the app
  * opens, a greeting from Felix on the home screen, the lock screen, the widget and a
  * notification in the morning. Every other day the app is unchanged.
  */
@@ -24,7 +24,7 @@ object Birthday {
     const val FROM = "Felix"
     const val BORN = 1971
     private const val MONTH = 11
-    private const val DAY = 19
+    private const val DAY = 20
 
     private const val CHANNEL = "greetings"
     private const val NOTIFICATION_ID = 1911
@@ -47,7 +47,7 @@ object Birthday {
         prefs(context).edit().putBoolean("test", on).apply()
     }
 
-    /** The real 19 November, ignoring the test mode. */
+    /** The real 20 November, ignoring the test mode. */
     private fun isRealBirthday(date: LocalDate = LocalDate.now()): Boolean = date.monthValue == MONTH && date.dayOfMonth == DAY
 
     /** Whether the app celebrates right now: on the birthday, or any day in test mode. */
@@ -63,13 +63,16 @@ object Birthday {
         return day.atTime(9, 0)
     }
 
-    /** Queues the morning greeting. Called on every app start; KEEP leaves an existing one alone. */
+    /**
+     * Queues the morning greeting. Called on every app start; KEEP leaves an existing one alone.
+     * The name carries the full date, so a greeting queued for an earlier date does not block it.
+     */
     fun schedule(context: Context) {
         val now = LocalDateTime.now()
         val target = nextMorning(now)
         val delay = Duration.between(now, target).toMillis().coerceAtLeast(0)
         WorkManager.getInstance(context).enqueueUniqueWork(
-            "birthday-${target.year}",
+            "birthday-${target.toLocalDate()}",
             ExistingWorkPolicy.KEEP,
             OneTimeWorkRequestBuilder<BirthdayWorker>().setInitialDelay(delay, TimeUnit.MILLISECONDS).build(),
         )
